@@ -1,0 +1,106 @@
+import React, { useEffect, useState } from "react";
+import { styled } from "storybook/internal/theming";
+import { useLoracleApi } from "../hooks/useLoracleApi.js";
+
+const Container = styled.div({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "6px 12px",
+  borderBottom: "1px solid rgba(255,255,255,0.1)",
+  fontSize: "11px",
+  color: "#888",
+});
+
+const LeftGroup = styled.div({
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+});
+
+const StatusIndicator = styled.div<{ connected: boolean }>(({ connected }) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  "&::before": {
+    content: '""',
+    display: "inline-block",
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    backgroundColor: connected ? "#22c55e" : "#ef4444",
+  },
+}));
+
+const StoryName = styled.span({
+  fontWeight: 500,
+  color: "#ccc",
+  maxWidth: "200px",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+});
+
+const DraftBadge = styled.span({
+  fontSize: "10px",
+  padding: "1px 6px",
+  borderRadius: "8px",
+  backgroundColor: "#422006",
+  color: "#fbbf24",
+  fontWeight: 600,
+});
+
+const PromoteButton = styled.button({
+  fontSize: "10px",
+  padding: "2px 8px",
+  border: "1px solid #3b82f6",
+  borderRadius: "4px",
+  backgroundColor: "transparent",
+  color: "#60a5fa",
+  cursor: "pointer",
+  "&:hover": { backgroundColor: "#1e3a5f" },
+});
+
+interface StatusBarProps {
+  storyTitle: string | null;
+  isDraft?: boolean;
+  onPromote?: () => void;
+}
+
+export const StatusBar: React.FC<StatusBarProps> = ({
+  storyTitle,
+  isDraft,
+  onPromote,
+}) => {
+  const [connected, setConnected] = useState(false);
+  const api = useLoracleApi();
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      const ok = await api.health();
+      if (!cancelled) setConnected(ok);
+    };
+    check();
+    const interval = setInterval(check, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <Container>
+      <LeftGroup>
+        <StatusIndicator connected={connected}>
+          {connected ? "Connected" : "Disconnected"}
+        </StatusIndicator>
+        {isDraft && <DraftBadge>DRAFT</DraftBadge>}
+        {isDraft && onPromote && (
+          <PromoteButton onClick={onPromote}>Promote</PromoteButton>
+        )}
+      </LeftGroup>
+      {storyTitle && <StoryName>{storyTitle}</StoryName>}
+    </Container>
+  );
+};

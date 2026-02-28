@@ -1,0 +1,23 @@
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+  codeSnapshot?: string;
+  images?: string[];
+}
+
+export interface ChatSession {
+  storyId: string;
+  cliSessionId?: string | null;
+  messages: ChatMessage[];
+  filePath?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface StreamEvent {
+  type: "text" | "tool_use" | "tool_result" | "error" | "done";
+  content?: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+}
