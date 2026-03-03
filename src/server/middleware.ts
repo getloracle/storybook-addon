@@ -68,11 +68,11 @@ export function createMiddleware(projectRoot: string) {
       pattern: /^\/loracle-api\/prompt$/,
       handler: async (req, res) => {
         const body = await parseBody(req);
-        const { prompt, storyId, storyFilePath, images } = body as {
+        const { prompt, storyId, storyFilePath, image } = body as {
           prompt: string;
           storyId: string;
           storyFilePath?: string;
-          images?: string[];
+          image?: { path: string; base64: string; mimeType: string };
         };
         if (!prompt || !storyId) {
           json(res, { error: "prompt and storyId required" }, 400);
@@ -82,7 +82,7 @@ export function createMiddleware(projectRoot: string) {
           prompt,
           storyId,
           storyFilePath,
-          images,
+          image,
         });
         json(res, { generationId });
       },
@@ -217,6 +217,37 @@ export function createMiddleware(projectRoot: string) {
 
         fs.renameSync(absSource, absTarget);
         json(res, { promoted: true, target: absTarget });
+      },
+    },
+    // Create new draft story
+    {
+      method: "POST",
+      pattern: /^\/loracle-api\/create-draft$/,
+      handler: async (req, res) => {
+        const body = await parseBody(req);
+        const { componentName } = body as { componentName: string };
+
+        if (!componentName || !/^[A-Z][a-zA-Z0-9]*$/.test(componentName)) {
+          json(
+            res,
+            { error: "componentName is required and must be PascalCase (e.g. LoginForm)" },
+            400
+          );
+          return;
+        }
+
+        try {
+          const filePath = fileManager.createDraftScaffold(componentName);
+          // Deterministic story ID: "AI Drafts/ComponentName" -> "ai-drafts-componentname--default"
+          const storyId = `ai-drafts-${componentName.toLowerCase()}--default`;
+          json(res, { created: true, filePath, storyId }, 201);
+        } catch (err) {
+          if (err instanceof Error && err.message.startsWith("CONFLICT:")) {
+            json(res, { error: `A draft named ${componentName} already exists.` }, 409);
+          } else {
+            throw err;
+          }
+        }
       },
     },
     // 5D: File change events SSE

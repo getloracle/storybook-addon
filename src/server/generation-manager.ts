@@ -5,7 +5,7 @@ import type { ChildProcess } from "child_process";
 import { ClaudeCodeAdapter } from "./cli-adapter.js";
 import { PromptBuilder } from "./prompt-builder.js";
 import { SessionStore } from "./session-store.js";
-import type { StreamEvent, ChatMessage } from "../types.js";
+import type { StreamEvent, ChatMessage, ImageAttachment } from "../types.js";
 
 interface Generation {
   id: string;
@@ -36,7 +36,7 @@ export class GenerationManager {
     prompt: string;
     storyId: string;
     storyFilePath?: string;
-    images?: string[];
+    image?: ImageAttachment;
   }): string {
     // Kill any active generation
     if (this.activeGeneration && !this.activeGeneration.done) {
@@ -66,7 +66,7 @@ export class GenerationManager {
       role: "user",
       content: opts.prompt,
       timestamp: Date.now(),
-      images: opts.images,
+      image: opts.image,
       codeSnapshot,
     };
     this.sessionStore.addMessage(opts.storyId, userMessage);
@@ -77,11 +77,14 @@ export class GenerationManager {
     }
 
     // Build full prompt
+    // When resuming a CLI session, chat history is already in Claude's context
+    // via --resume, so don't include it again in the prompt (avoids "Prompt is too long")
+    const isResuming = !!session?.cliSessionId;
     const fullPrompt = this.promptBuilder.build({
       userPrompt: opts.prompt,
       storyFilePath: opts.storyFilePath,
-      chatHistory: session?.messages,
-      images: opts.images,
+      chatHistory: isResuming ? undefined : session?.messages,
+      image: opts.image,
     });
 
     // Spawn CLI process

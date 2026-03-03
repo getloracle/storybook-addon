@@ -17,20 +17,15 @@ export const AGENTS_MD_TEMPLATE = `# Loracle Design Agent — Storybook Instruct
 
 ### \`get_components\`
 Search the design system for existing UI components by natural-language query.
-Use this before creating new components to check if something similar already exists.
+Use this to discover available Penny components, their props, and documentation.
+**Always call this before writing code** to find the right components for what you see in the image.
+Make multiple targeted queries (e.g. "form text input", "navigation tabs", "data table") rather than one broad query.
 
 Example:
 \`\`\`
 get_components({ query: "button with loading state" })
-\`\`\`
-
-### \`analyze_ui\`
-Analyze a UI screenshot and return a component tree in XML format.
-Use this when the user uploads a design mockup or screenshot to understand its structure.
-
-Example:
-\`\`\`
-analyze_ui({ file_path: "/path/to/screenshot.png" })
+get_components({ query: "form text field with label" })
+get_components({ query: "page layout with sidebar" })
 \`\`\`
 
 ## Type-Checking
@@ -42,9 +37,11 @@ analyze_ui({ file_path: "/path/to/screenshot.png" })
 
 ## Image Handling
 
-- Uploaded images are saved to \`__ai_drafts__/.uploads/\`
-- Reference uploaded images in prompts as \`<uploaded_image path="..." />\`
-- Use \`analyze_ui\` MCP tool to extract component structure from screenshots
+- Uploaded images are saved to \`__ai_drafts__/.uploads/\` and referenced by file path in the prompt
+- When the user uploads an image, it appears as \`<uploaded_image path="..." />\`
+- **Use the \`Read\` tool to view the image** — you have native vision and can see image files directly
+- After viewing the image, use \`get_components\` with targeted queries to find matching Penny components
+- Do NOT use \`analyze_ui\` — compose the code directly from what you see in the image + the component documentation from \`get_components\`
 
 ## Design System — @melio/penny
 

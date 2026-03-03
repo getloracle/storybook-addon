@@ -7,7 +7,7 @@ export default defineConfig([
     dts: true,
     platform: "browser",
     outDir: "dist",
-    external: ["react", "storybook"],
+    external: ["react", "react-dom", "storybook"],
     clean: false,
   },
   {

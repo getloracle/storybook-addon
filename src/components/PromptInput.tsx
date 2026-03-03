@@ -1,11 +1,20 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { styled } from "storybook/internal/theming";
+import type { ImageAttachment } from "../types.js";
 
-const Container = styled.div({
+const Container = styled.div<{ isDragOver: boolean }>(({ isDragOver }) => ({
+  display: "flex",
+  flexDirection: "column",
+  padding: "8px 12px",
+  borderTop: isDragOver
+    ? "2px solid #3b82f6"
+    : "1px solid rgba(255,255,255,0.1)",
+  transition: "border-color 0.15s",
+}));
+
+const InputRow = styled.div({
   display: "flex",
   gap: "8px",
-  padding: "8px 12px",
-  borderTop: "1px solid rgba(255,255,255,0.1)",
   alignItems: "flex-end",
 });
 
@@ -65,8 +74,60 @@ const StopButton = styled.button({
   },
 });
 
+const AttachButton = styled.button({
+  padding: "8px",
+  borderRadius: "8px",
+  border: "1px solid rgba(255,255,255,0.15)",
+  backgroundColor: "transparent",
+  color: "#888",
+  fontSize: "16px",
+  cursor: "pointer",
+  lineHeight: 1,
+  "&:hover": {
+    borderColor: "#666",
+    color: "#ccc",
+  },
+  "&:disabled": {
+    opacity: 0.4,
+    cursor: "default",
+  },
+});
+
+const HiddenInput = styled.input({
+  display: "none",
+});
+
+const PreviewRow = styled.div({
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  marginBottom: "8px",
+});
+
+const Thumbnail = styled.img({
+  maxWidth: "80px",
+  maxHeight: "60px",
+  borderRadius: "6px",
+  border: "1px solid rgba(255,255,255,0.15)",
+  objectFit: "cover",
+});
+
+const RemoveButton = styled.button({
+  padding: "2px 6px",
+  fontSize: "11px",
+  border: "1px solid #666",
+  borderRadius: "4px",
+  backgroundColor: "transparent",
+  color: "#888",
+  cursor: "pointer",
+  "&:hover": {
+    borderColor: "#ef4444",
+    color: "#ef4444",
+  },
+});
+
 interface PromptInputProps {
-  onSend: (prompt: string) => void;
+  onSend: (prompt: string, image?: ImageAttachment) => void;
   onStop: () => void;
   isStreaming: boolean;
   disabled: boolean;
@@ -79,17 +140,66 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   disabled,
 }) => {
   const [value, setValue] = useState("");
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSend = useCallback(() => {
+  // Manage preview URL lifecycle
+  useEffect(() => {
+    if (pendingImage) {
+      const url = URL.createObjectURL(pendingImage);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [pendingImage]);
+
+  const setImageFromFile = useCallback((file: File) => {
+    if (file.type.startsWith("image/")) {
+      setPendingImage(file);
+    }
+  }, []);
+
+  const handleSend = useCallback(async () => {
     const trimmed = value.trim();
-    if (!trimmed) return;
-    onSend(trimmed);
+    if (!trimmed && !pendingImage) return;
+
+    if (pendingImage) {
+      setIsUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("image", pendingImage);
+        const res = await fetch("/loracle-api/upload-image", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.path && data.base64) {
+          onSend(trimmed || "Analyze this image", {
+            path: data.path,
+            base64: data.base64,
+            mimeType: data.mimeType,
+          });
+        }
+      } catch {
+        // Upload failed — send text only
+        if (trimmed) onSend(trimmed);
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      onSend(trimmed);
+    }
+
     setValue("");
+    setPendingImage(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "36px";
     }
-  }, [value, onSend]);
+  }, [value, pendingImage, onSend]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -109,25 +219,102 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     }
   }, []);
 
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) setImageFromFile(file);
+          return;
+        }
+      }
+    },
+    [setImageFromFile]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) setImageFromFile(file);
+    },
+    [setImageFromFile]
+  );
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) setImageFromFile(file);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    [setImageFromFile]
+  );
+
+  const isInputDisabled = disabled || isStreaming || isUploading;
+  const canSend = !isInputDisabled && (value.trim() || pendingImage);
+
   return (
-    <Container>
-      <TextArea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onInput={handleInput}
-        placeholder="Describe what you want to build..."
-        disabled={disabled || isStreaming}
-        rows={1}
-      />
-      {isStreaming ? (
-        <StopButton onClick={onStop}>Stop</StopButton>
-      ) : (
-        <SendButton onClick={handleSend} disabled={disabled || !value.trim()}>
-          Send
-        </SendButton>
+    <Container
+      isDragOver={isDragOver}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {previewUrl && (
+        <PreviewRow>
+          <Thumbnail src={previewUrl} alt="Pending upload" />
+          <RemoveButton onClick={() => setPendingImage(null)}>
+            Remove
+          </RemoveButton>
+        </PreviewRow>
       )}
+      <InputRow>
+        <AttachButton
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isInputDisabled}
+          title="Attach image"
+        >
+          +
+        </AttachButton>
+        <HiddenInput
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+        />
+        <TextArea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onInput={handleInput}
+          onPaste={handlePaste}
+          placeholder="Describe what you want to build..."
+          disabled={isInputDisabled}
+          rows={1}
+        />
+        {isStreaming ? (
+          <StopButton onClick={onStop}>Stop</StopButton>
+        ) : (
+          <SendButton onClick={handleSend} disabled={!canSend}>
+            {isUploading ? "..." : "Send"}
+          </SendButton>
+        )}
+      </InputRow>
     </Container>
   );
 };

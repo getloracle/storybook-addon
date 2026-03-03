@@ -61,16 +61,36 @@ const PromoteButton = styled.button({
   "&:hover": { backgroundColor: "#1e3a5f" },
 });
 
+const NewDraftButton = styled.button({
+  fontSize: "10px",
+  padding: "2px 8px",
+  border: "1px solid #22c55e",
+  borderRadius: "4px",
+  backgroundColor: "transparent",
+  color: "#4ade80",
+  cursor: "pointer",
+  fontWeight: 600,
+  "&:hover": { backgroundColor: "#14532d" },
+});
+
+const RightGroup = styled.div({
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+});
+
 interface StatusBarProps {
   storyTitle: string | null;
   isDraft?: boolean;
   onPromote?: () => void;
+  onNewDraft?: () => void;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
   storyTitle,
   isDraft,
   onPromote,
+  onNewDraft,
 }) => {
   const [connected, setConnected] = useState(false);
   const api = useLoracleApi();
@@ -100,7 +120,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <PromoteButton onClick={onPromote}>Promote</PromoteButton>
         )}
       </LeftGroup>
-      {storyTitle && <StoryName>{storyTitle}</StoryName>}
+      <RightGroup>
+        {storyTitle && <StoryName>{storyTitle}</StoryName>}
+        {onNewDraft && (
+          <NewDraftButton onClick={onNewDraft}>+ New</NewDraftButton>
+        )}
+      </RightGroup>
     </Container>
   );
 };

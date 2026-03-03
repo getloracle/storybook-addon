@@ -17,7 +17,7 @@ export class ImageHandler {
     }
   }
 
-  async handleUpload(req: IncomingMessage): Promise<{ path: string }> {
+  async handleUpload(req: IncomingMessage): Promise<{ path: string; base64: string; mimeType: string }> {
     this.ensureDir();
 
     const chunks: Buffer[] = [];
@@ -67,7 +67,16 @@ export class ImageHandler {
     const outputPath = path.join(this.uploadsDir, filename);
     fs.writeFileSync(outputPath, outputBuffer);
 
-    return { path: outputPath };
+    const ext = path.extname(filename).toLowerCase();
+    const mimeType =
+      ext === ".jpg" || ext === ".jpeg"
+        ? "image/jpeg"
+        : ext === ".webp"
+          ? "image/webp"
+          : "image/png";
+    const base64 = outputBuffer.toString("base64");
+
+    return { path: outputPath, base64, mimeType };
   }
 
   private parseMultipart(

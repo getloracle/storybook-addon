@@ -53,6 +53,33 @@ export class FileManager {
     this.watchers.set(filePath, watcher);
   }
 
+  createDraftScaffold(componentName: string): string {
+    const fileName = `${componentName}.stories.tsx`;
+    const filePath = path.join(this.draftsDir, fileName);
+
+    if (fs.existsSync(filePath)) {
+      throw new Error(`CONFLICT: ${fileName} already exists in __ai_drafts__/`);
+    }
+
+    const scaffold = `import type { Meta, StoryObj } from "@storybook/react";
+
+const ${componentName} = () => <div>${componentName}</div>;
+
+const meta: Meta<typeof ${componentName}> = {
+  title: "AI Drafts/${componentName}",
+  component: ${componentName},
+};
+
+export default meta;
+type Story = StoryObj<typeof ${componentName}>;
+
+export const Default: Story = {};
+`;
+
+    this.atomicWrite(filePath, scaffold);
+    return `__ai_drafts__/${fileName}`;
+  }
+
   unwatchFile(filePath: string): void {
     const watcher = this.watchers.get(filePath);
     if (watcher) {

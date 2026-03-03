@@ -44,6 +44,13 @@ const RoleLabel = styled.div({
   color: "#888",
 });
 
+const MessageImage = styled.img({
+  maxWidth: "200px",
+  borderRadius: "8px",
+  display: "block",
+  marginBottom: "6px",
+});
+
 const RestoreButton = styled.button({
   fontSize: "10px",
   color: "#93c5fd",
@@ -86,7 +93,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
       </RoleLabelRow>
       <BubbleContainer isUser={isUser}>
-        <Bubble isUser={isUser}>{message.content}</Bubble>
+        <Bubble isUser={isUser}>
+          {message.image && (
+            <MessageImage
+              src={`data:${message.image.mimeType};base64,${message.image.base64}`}
+              alt="Attached image"
+            />
+          )}
+          {message.content}
+        </Bubble>
       </BubbleContainer>
     </div>
   );

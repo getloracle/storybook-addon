@@ -1,4 +1,4 @@
-import type { ChatSession, StreamEvent } from "../types.js";
+import type { ChatSession, StreamEvent, ImageAttachment } from "../types.js";
 
 const BASE = "/loracle-api";
 
@@ -23,7 +23,7 @@ export function useLoracleApi() {
     prompt: string;
     storyId: string;
     storyFilePath?: string;
-    images?: string[];
+    image?: ImageAttachment;
   }): Promise<string> {
     const res = await fetch(`${BASE}/prompt`, {
       method: "POST",
@@ -92,5 +92,20 @@ export function useLoracleApi() {
     return data.killed;
   }
 
-  return { health, getSession, sendPrompt, streamGeneration, kill };
+  async function createDraft(
+    componentName: string
+  ): Promise<{ created: boolean; filePath: string; storyId: string; error?: string }> {
+    const res = await fetch(`${BASE}/create-draft`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ componentName }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { created: false, filePath: "", storyId: "", error: data.error };
+    }
+    return data;
+  }
+
+  return { health, getSession, sendPrompt, streamGeneration, kill, createDraft };
 }

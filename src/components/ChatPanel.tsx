@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { styled } from "storybook/internal/theming";
+import { useStorybookApi } from "storybook/internal/manager-api";
 import { useChat } from "../hooks/useChat.js";
+import { useLoracleApi } from "../hooks/useLoracleApi.js";
 import { useCurrentStory } from "../hooks/useCurrentStory.js";
 import { StatusBar } from "./StatusBar.js";
 import { MessageList } from "./MessageList.js";
 import { PromptInput } from "./PromptInput.js";
 import { PromoteDialog } from "./PromoteDialog.js";
+import { NewDraftDialog } from "./NewDraftDialog.js";
 
 const Container = styled.div({
   display: "flex",
@@ -38,12 +41,25 @@ const BannerButton = styled.button({
 });
 
 export const ChatPanel: React.FC = () => {
+  const sbApi = useStorybookApi();
+  const loracleApi = useLoracleApi();
   const { storyId, storyTitle, storyFilePath } = useCurrentStory();
   const { messages, state, streamingText, send, stop } = useChat(storyId, storyFilePath);
   const [showPromote, setShowPromote] = useState(false);
+  const [showNewDraft, setShowNewDraft] = useState(false);
   const [fileChanged, setFileChanged] = useState(false);
+  const pendingPromptRef = useRef<string | null>(null);
 
   const isDraft = storyFilePath?.includes("__ai_drafts__") ?? false;
+
+  // Auto-send pending prompt after navigating to the new draft story
+  useEffect(() => {
+    if (pendingPromptRef.current && storyId && storyFilePath) {
+      const prompt = pendingPromptRef.current;
+      pendingPromptRef.current = null;
+      send(prompt);
+    }
+  }, [storyId, storyFilePath, send]);
 
   const handleRestore = useCallback(
     async (messageIndex: number) => {
@@ -86,6 +102,40 @@ export const ChatPanel: React.FC = () => {
     };
   }, [storyFilePath]);
 
+  const handleCreateDraft = useCallback(
+    async (componentName: string, description: string) => {
+      const result = await loracleApi.createDraft(componentName);
+      if (!result.created) return;
+
+      setShowNewDraft(false);
+
+      // Store the prompt to auto-send after navigation
+      if (description) {
+        pendingPromptRef.current = description;
+      }
+
+      // Poll for Storybook to register the new story, then navigate
+      const targetStoryId = result.storyId;
+      const pollInterval = 300;
+      const maxAttempts = 17; // ~5s
+      let attempts = 0;
+
+      const poll = setInterval(() => {
+        attempts++;
+        const data = sbApi.getData(targetStoryId);
+        if (data) {
+          clearInterval(poll);
+          sbApi.selectStory(targetStoryId);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          // Fallback: reload so Storybook picks up the file
+          window.location.reload();
+        }
+      }, pollInterval);
+    },
+    [loracleApi, sbApi]
+  );
+
   const handlePromote = useCallback(
     async (targetDir: string) => {
       if (!storyFilePath) return;
@@ -99,20 +149,13 @@ export const ChatPanel: React.FC = () => {
     [storyFilePath]
   );
 
-  const handleImageUpload = useCallback(
-    (imagePath: string) => {
-      // Prepend image reference to next prompt
-      send(`[Image: ${imagePath}] `);
-    },
-    [send]
-  );
-
   return (
     <Container>
       <StatusBar
         storyTitle={storyTitle}
         isDraft={isDraft}
         onPromote={isDraft ? () => setShowPromote(true) : undefined}
+        onNewDraft={() => setShowNewDraft(true)}
       />
       {fileChanged && (
         <Banner>
@@ -139,6 +182,12 @@ export const ChatPanel: React.FC = () => {
           storyFilePath={storyFilePath}
           onPromote={handlePromote}
           onCancel={() => setShowPromote(false)}
+        />
+      )}
+      {showNewDraft && (
+        <NewDraftDialog
+          onCreate={handleCreateDraft}
+          onCancel={() => setShowNewDraft(false)}
         />
       )}
     </Container>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { ChatMessage, StreamEvent } from "../types.js";
+import type { ChatMessage, StreamEvent, ImageAttachment } from "../types.js";
 import { useLoracleApi } from "./useLoracleApi.js";
 
 type ChatState = "idle" | "streaming" | "error";
@@ -15,8 +15,8 @@ export function useChat(storyId: string | null, storyFilePath?: string | null) {
   // Load session when story changes
   useEffect(() => {
     currentStoryRef.current = storyId;
+    setMessages([]);
     if (!storyId) {
-      setMessages([]);
       return;
     }
 
@@ -28,13 +28,14 @@ export function useChat(storyId: string | null, storyFilePath?: string | null) {
   }, [storyId]);
 
   const send = useCallback(
-    async (prompt: string) => {
+    async (prompt: string, image?: ImageAttachment) => {
       if (!storyId || state === "streaming") return;
 
       const userMessage: ChatMessage = {
         role: "user",
         content: prompt,
         timestamp: Date.now(),
+        image,
       };
       setMessages((prev) => [...prev, userMessage]);
       setState("streaming");
@@ -45,6 +46,7 @@ export function useChat(storyId: string | null, storyFilePath?: string | null) {
           prompt,
           storyId,
           storyFilePath: storyFilePath || undefined,
+          image,
         });
 
         let fullText = "";

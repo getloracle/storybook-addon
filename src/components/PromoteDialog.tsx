@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { styled } from "storybook/internal/theming";
 
 interface PromoteDialogProps {
@@ -8,7 +9,7 @@ interface PromoteDialogProps {
 }
 
 const Overlay = styled.div({
-  position: "absolute",
+  position: "fixed",
   inset: 0,
   backgroundColor: "rgba(0,0,0,0.7)",
   display: "flex",
@@ -96,7 +97,7 @@ export const PromoteDialog: React.FC<PromoteDialogProps> = ({
     }
   }, [targetDir, onPromote]);
 
-  return (
+  return createPortal(
     <Overlay onClick={onCancel}>
       <Dialog onClick={(e) => e.stopPropagation()}>
         <Title>Promote Draft</Title>
@@ -118,6 +119,7 @@ export const PromoteDialog: React.FC<PromoteDialogProps> = ({
           </Button>
         </ButtonRow>
       </Dialog>
-    </Overlay>
+    </Overlay>,
+    document.body
   );
 };

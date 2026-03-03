@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type { ChatMessage } from "../types.js";
+import type { ChatMessage, ImageAttachment } from "../types.js";
 
 export class PromptBuilder {
   private projectRoot: string;
@@ -13,7 +13,7 @@ export class PromptBuilder {
     userPrompt: string;
     storyFilePath?: string;
     chatHistory?: ChatMessage[];
-    images?: string[];
+    image?: ImageAttachment;
   }): string {
     const parts: string[] = [];
 
@@ -43,9 +43,11 @@ If the user asks for something that seems unrelated to the current component (e.
       }
     }
 
-    // Chat history
+    // Chat history (truncate to last N messages to stay within prompt limits)
     if (opts.chatHistory && opts.chatHistory.length > 0) {
-      const historyXml = opts.chatHistory
+      const MAX_HISTORY_MESSAGES = 10;
+      const recentMessages = opts.chatHistory.slice(-MAX_HISTORY_MESSAGES);
+      const historyXml = recentMessages
         .map(
           (msg) =>
             `<message role="${msg.role}" timestamp="${msg.timestamp}">\n${msg.content}\n</message>`
@@ -54,11 +56,9 @@ If the user asks for something that seems unrelated to the current component (e.
       parts.push(`<chat_history>\n${historyXml}\n</chat_history>`);
     }
 
-    // Image references
-    if (opts.images && opts.images.length > 0) {
-      for (const img of opts.images) {
-        parts.push(`<uploaded_image path="${img}" />`);
-      }
+    // Image reference — agent uses Read tool to view the image natively
+    if (opts.image) {
+      parts.push(`<uploaded_image path="${opts.image.path}" />`);
     }
 
     // User prompt

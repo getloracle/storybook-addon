@@ -1,9 +1,15 @@
+export interface ImageAttachment {
+  path: string;
+  base64: string;
+  mimeType: string;
+}
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
   codeSnapshot?: string;
-  images?: string[];
+  image?: ImageAttachment;
 }
 
 export interface ChatSession {
