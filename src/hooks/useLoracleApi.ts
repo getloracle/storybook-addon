@@ -107,5 +107,15 @@ export function useLoracleApi() {
     return data;
   }
 
-  return { health, getSession, sendPrompt, streamGeneration, kill, createDraft };
+  function warmSession(storyId: string): void {
+    fetch(`${BASE}/warm-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storyId }),
+    }).catch(() => {
+      // Fire-and-forget — don't block on warming failures
+    });
+  }
+
+  return { health, getSession, sendPrompt, streamGeneration, kill, createDraft, warmSession };
 }

@@ -5,6 +5,8 @@ import { SessionStore } from "./session-store.js";
 import { FileManager } from "./file-manager.js";
 import { GenerationManager } from "./generation-manager.js";
 import { ImageHandler } from "./image-handler.js";
+import { detectProvider, configureProvider } from "./provider-detector.js";
+import type { OpencodeClient } from "@opencode-ai/sdk";
 
 interface Route {
   method: string;
@@ -44,15 +46,101 @@ export function createMiddleware(projectRoot: string) {
   const generationManager = new GenerationManager(projectRoot);
   const imageHandler = new ImageHandler(projectRoot);
 
+  // Store client ref and provider status
+  let opencodeClient: OpencodeClient | null = null;
+  let providerStatus = { configured: false, provider: null as string | null, model: null as string | null };
+
   // File change SSE clients
   const fileChangeListeners = new Set<(data: string) => void>();
+
+  // Called by preset.ts once OpenCode is ready
+  function setClient(client: OpencodeClient) {
+    opencodeClient = client;
+    generationManager.setClient(client);
+
+    // Auto-detect provider in background
+    detectProvider(client, projectRoot)
+      .then((status) => {
+        providerStatus = status;
+        console.log("[loracle] Provider status:", status);
+      })
+      .catch((err) => {
+        console.warn("[loracle] Provider detection failed:", err);
+      });
+  }
 
   const routes: Route[] = [
     {
       method: "GET",
       pattern: /^\/loracle-api\/health$/,
       handler: (_req, res) => {
-        json(res, { status: "ok" });
+        json(res, { status: "ok", opencode: !!opencodeClient });
+      },
+    },
+    // Provider status endpoint
+    {
+      method: "GET",
+      pattern: /^\/loracle-api\/provider-status$/,
+      handler: (_req, res) => {
+        json(res, providerStatus);
+      },
+    },
+    // Connect endpoint (manual API key)
+    {
+      method: "POST",
+      pattern: /^\/loracle-api\/connect$/,
+      handler: async (req, res) => {
+        if (!opencodeClient) {
+          json(res, { error: "AI backend is still starting. Please try again." }, 503);
+          return;
+        }
+
+        const body = await parseBody(req);
+        const { provider, apiKey } = body as { provider: string; apiKey: string };
+
+        if (!provider || !apiKey) {
+          json(res, { error: "provider and apiKey required" }, 400);
+          return;
+        }
+
+        try {
+          await configureProvider(opencodeClient, provider, apiKey, projectRoot);
+          providerStatus = { configured: true, provider, model: null };
+          json(res, { configured: true, provider });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Failed to configure provider";
+          json(res, { error: message }, 400);
+        }
+      },
+    },
+    // Eagerly warm up an OpenCode session for a story
+    {
+      method: "POST",
+      pattern: /^\/loracle-api\/warm-session$/,
+      handler: async (req, res) => {
+        if (!opencodeClient) {
+          json(res, { warmed: false }, 503);
+          return;
+        }
+
+        const body = await parseBody(req);
+        const { storyId } = body as { storyId: string };
+        if (!storyId) {
+          json(res, { error: "storyId required" }, 400);
+          return;
+        }
+
+        generationManager
+          .warmSession(storyId)
+          .then(() => {
+            console.log("[loracle] Session warmed for:", storyId);
+          })
+          .catch((err) => {
+            console.warn("[loracle] Failed to warm session:", err);
+          });
+
+        // Return immediately — warming happens in background
+        json(res, { warmed: true });
       },
     },
     {
@@ -67,6 +155,11 @@ export function createMiddleware(projectRoot: string) {
       method: "POST",
       pattern: /^\/loracle-api\/prompt$/,
       handler: async (req, res) => {
+        if (!opencodeClient) {
+          json(res, { error: "AI backend is still starting. Please try again." }, 503);
+          return;
+        }
+
         const body = await parseBody(req);
         const { prompt, storyId, storyFilePath, image } = body as {
           prompt: string;
@@ -121,7 +214,7 @@ export function createMiddleware(projectRoot: string) {
         json(res, { killed });
       },
     },
-    // 5A: Revert to code snapshot at a specific message
+    // Revert to code snapshot at a specific message
     {
       method: "POST",
       pattern: /^\/loracle-api\/revert$/,
@@ -156,7 +249,7 @@ export function createMiddleware(projectRoot: string) {
           fileManager.atomicWrite(absPath, msg.codeSnapshot);
         }
 
-        // Truncate messages to this point (remove everything after this message)
+        // Truncate messages to this point
         session.messages = session.messages.slice(0, messageIndex);
         session.updatedAt = Date.now();
         session.cliSessionId = null;
@@ -165,7 +258,7 @@ export function createMiddleware(projectRoot: string) {
         json(res, { reverted: true, messageIndex });
       },
     },
-    // 5B: Image upload
+    // Image upload
     {
       method: "POST",
       pattern: /^\/loracle-api\/upload-image$/,
@@ -182,7 +275,7 @@ export function createMiddleware(projectRoot: string) {
         }
       },
     },
-    // 5C: Promote draft
+    // Promote draft
     {
       method: "POST",
       pattern: /^\/loracle-api\/promote$/,
@@ -238,7 +331,6 @@ export function createMiddleware(projectRoot: string) {
 
         try {
           const filePath = fileManager.createDraftScaffold(componentName);
-          // Deterministic story ID: "AI Drafts/ComponentName" -> "ai-drafts-componentname--default"
           const storyId = `ai-drafts-${componentName.toLowerCase()}--default`;
           json(res, { created: true, filePath, storyId }, 201);
         } catch (err) {
@@ -250,7 +342,7 @@ export function createMiddleware(projectRoot: string) {
         }
       },
     },
-    // 5D: File change events SSE
+    // File change events SSE
     {
       method: "GET",
       pattern: /^\/loracle-api\/file-events$/,
@@ -271,7 +363,7 @@ export function createMiddleware(projectRoot: string) {
         });
       },
     },
-    // 5D: Watch a file
+    // Watch a file
     {
       method: "POST",
       pattern: /^\/loracle-api\/watch$/,
@@ -302,7 +394,7 @@ export function createMiddleware(projectRoot: string) {
     },
   ];
 
-  return (
+  const middleware = (
     req: IncomingMessage,
     res: ServerResponse,
     next: () => void
@@ -332,4 +424,6 @@ export function createMiddleware(projectRoot: string) {
       json(res, { error: "Internal server error" }, 500);
     });
   };
+
+  return { middleware, setClient };
 }

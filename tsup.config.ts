@@ -11,6 +11,15 @@ export default defineConfig([
     clean: false,
   },
   {
+    entry: ["src/preview.tsx"],
+    format: ["esm"],
+    dts: true,
+    platform: "browser",
+    outDir: "dist",
+    external: ["react", "react-dom", "storybook"],
+    clean: false,
+  },
+  {
     entry: ["src/preset.ts"],
     format: ["esm"],
     dts: true,

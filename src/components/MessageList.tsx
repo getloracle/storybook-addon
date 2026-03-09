@@ -49,6 +49,7 @@ interface MessageListProps {
   messages: ChatMessage[];
   streamingText: string;
   isStreaming: boolean;
+  hideStreamingBubble?: boolean;
   onRestore?: (messageIndex: number) => void;
 }
 
@@ -56,6 +57,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   messages,
   streamingText,
   isStreaming,
+  hideStreamingBubble,
   onRestore,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,7 +85,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       {messages.map((msg, i) => (
         <MessageBubble key={i} message={msg} messageIndex={i} onRestore={onRestore} />
       ))}
-      {isStreaming && streamingText && (
+      {isStreaming && streamingText && !hideStreamingBubble && (
         <StreamingBubble>
           <StreamingLabel>Claude</StreamingLabel>
           <StreamingContent>{streamingText}</StreamingContent>

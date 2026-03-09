@@ -6,6 +6,7 @@ export const AGENTS_MD_TEMPLATE = `# Loracle Design Agent — Storybook Instruct
 - All changes — new stories, new compositions, new variants — go as **named exports** in the current file.
 - **Single-file architecture**: All generated code (component + stories) lives in one \`.stories.tsx\` file.
 - If the user asks for something unrelated to the current component, build it as a story composition within the current file using the existing component plus any additional Penny components.
+- **Never read or edit files in \`.temp/\` directories.** These are internal staging files managed by the addon.
 
 ## Convention
 
@@ -61,14 +62,13 @@ All UI work MUST use Penny components instead of raw HTML or third-party UI libr
 ### Import Pattern
 
 \`\`\`tsx
-import { Button, Text, Container, Group } from "@melio/penny";
+// Component names vary — always verify via get_components before importing.
+import { ComponentName } from "@melio/penny";
 \`\`\`
 
 ### Key Component Props
 
-- **Button**: \`label\` (string), \`variant\` (primary | secondary | tertiary | success | critical), \`size\` (small | medium | large), \`isLoading\`, \`isDisabled\`
-- Components use \`label\` prop for text content (not \`children\`)
-- Use \`get_components\` MCP tool to discover available Penny components and their props
+- Use \`get_components\` MCP tool to discover available Penny components and their exact props — do not assume component names or props from memory
 
 ## Forms — useMelioForm + Penny Form
 
@@ -139,4 +139,8 @@ export const Default: Story = {
   args: { label: "Click me", variant: "primary", size: "medium" },
 };
 \`\`\`
+
+## Validation Required
+
+You MUST typecheck the story file before completing any generation or modification. Fix any errors found.
 `;

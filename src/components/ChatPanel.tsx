@@ -6,9 +6,11 @@ import { useLoracleApi } from "../hooks/useLoracleApi.js";
 import { useCurrentStory } from "../hooks/useCurrentStory.js";
 import { StatusBar } from "./StatusBar.js";
 import { MessageList } from "./MessageList.js";
+import { ActivityStatus } from "./ActivityStatus.js";
 import { PromptInput } from "./PromptInput.js";
 import { PromoteDialog } from "./PromoteDialog.js";
 import { NewDraftDialog } from "./NewDraftDialog.js";
+import { Onboarding } from "./Onboarding.js";
 
 const Container = styled.div({
   display: "flex",
@@ -40,17 +42,50 @@ const BannerButton = styled.button({
   "&:hover": { backgroundColor: "#854d0e" },
 });
 
-export const ChatPanel: React.FC = () => {
+export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) => {
   const sbApi = useStorybookApi();
   const loracleApi = useLoracleApi();
   const { storyId, storyTitle, storyFilePath } = useCurrentStory();
-  const { messages, state, streamingText, send, stop } = useChat(storyId, storyFilePath);
+  const { messages, state, phase, streamingText, send, stop, isActive } = useChat(storyId, storyFilePath);
   const [showPromote, setShowPromote] = useState(false);
   const [showNewDraft, setShowNewDraft] = useState(false);
   const [fileChanged, setFileChanged] = useState(false);
+  const [providerReady, setProviderReady] = useState<boolean | null>(null);
   const pendingPromptRef = useRef<string | null>(null);
+  const warmedSessionsRef = useRef<Set<string>>(new Set());
 
   const isDraft = storyFilePath?.includes("__ai_drafts__") ?? false;
+
+  // Check provider status on mount
+  useEffect(() => {
+    fetch("/loracle-api/provider-status")
+      .then((res) => res.json())
+      .then((data) => {
+        setProviderReady(data.configured === true);
+      })
+      .catch(() => {
+        setProviderReady(false);
+      });
+  }, []);
+
+  // Show onboarding if provider not configured
+  if (providerReady === false) {
+    return (
+      <Onboarding
+        onConnected={() => {
+          setProviderReady(true);
+        }}
+      />
+    );
+  }
+
+  // Eagerly warm the OpenCode session when panel is active for a story
+  useEffect(() => {
+    if (active && storyId && providerReady && !warmedSessionsRef.current.has(storyId)) {
+      warmedSessionsRef.current.add(storyId);
+      loracleApi.warmSession(storyId);
+    }
+  }, [active, storyId, providerReady]);
 
   // Auto-send pending prompt after navigating to the new draft story
   useEffect(() => {
@@ -168,13 +203,15 @@ export const ChatPanel: React.FC = () => {
       <MessageList
         messages={messages}
         streamingText={streamingText}
-        isStreaming={state === "streaming"}
+        isStreaming={isActive}
+        hideStreamingBubble={isActive}
         onRestore={handleRestore}
       />
+      <ActivityStatus phase={phase} />
       <PromptInput
         onSend={send}
         onStop={stop}
-        isStreaming={state === "streaming"}
+        isStreaming={isActive}
         disabled={!storyId}
       />
       {showPromote && storyFilePath && (

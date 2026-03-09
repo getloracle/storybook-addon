@@ -19,9 +19,10 @@ export class ClaudeCodeAdapter implements CLIAdapter {
   spawn(prompt: string, sessionId?: string | null): ChildProcess {
     const allowedTools = [
       "Read", "Edit", "Write", "Glob", "Grep",
+      "Bash",
       "mcp__loracle__get_components",
     ].join(",");
-    const disallowedTools = ["Bash", "Agent", "WebFetch"].join(",");
+    const disallowedTools = ["Agent", "WebFetch"].join(",");
     const args = [
       "-p", prompt,
       "--output-format", "stream-json",

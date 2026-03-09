@@ -13,6 +13,9 @@
     "build": "tsup",
     "dev": "tsup --watch"
   },
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.2.24"
+  },
   "peerDependencies": {
     "storybook": "^8.0.0 || ^9.0.0"
   },

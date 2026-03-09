@@ -5,7 +5,7 @@ import { ChatPanel } from "./ChatPanel.js";
 export const Panel: React.FC<{ active?: boolean }> = ({ active = false }) => {
   return (
     <AddonPanel active={active}>
-      <ChatPanel />
+      <ChatPanel active={active} />
     </AddonPanel>
   );
 };

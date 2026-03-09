@@ -1,3 +1,12 @@
+export type GenerationPhase =
+  | "idle"
+  | "submitted"
+  | "thinking"
+  | "design-system"
+  | "writing"
+  | "done"
+  | "error";
+
 export interface ImageAttachment {
   path: string;
   base64: string;
