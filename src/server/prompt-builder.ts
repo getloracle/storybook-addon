@@ -36,8 +36,9 @@ export class PromptBuilder {
           `<scope_constraint>
 IMPORTANT: You are editing the story file above ("${opts.storyFilePath}").
 ALL changes MUST go into this single file. Do NOT create new files or new story files.
-Add new stories as additional named exports within this file.
-If the user asks for something that seems unrelated to the current component (e.g. "create login form" while viewing a Button story), implement it as a new story composition within this file using the current component and any additional Penny components needed.
+Do NOT add new named exports or new stories. Modify the EXISTING story exports in the file.
+If the file has a "Default" or other named story export, implement your changes by editing that existing export's render/args/template — do not create a separate story export with a different name.
+The user is viewing a specific story in Storybook right now. Your job is to update THAT story, not create a new one alongside it.
 </scope_constraint>`
         );
       }
@@ -56,9 +57,11 @@ If the user asks for something that seems unrelated to the current component (e.
       parts.push(`<chat_history>\n${historyXml}\n</chat_history>`);
     }
 
-    // Image reference — agent uses Read tool to view the image natively
+    // Image context note — the actual image is sent inline as a FilePartInput
     if (opts.image) {
-      parts.push(`<uploaded_image path="${opts.image.path}" />`);
+      parts.push(
+        `<attached_image>\nAn image has been attached inline with this message. Use it as the visual reference for your response.\n</attached_image>`
+      );
     }
 
     // User prompt

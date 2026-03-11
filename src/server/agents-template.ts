@@ -11,7 +11,6 @@ export const AGENTS_MD_TEMPLATE = `# Loracle Design Agent — Storybook Instruct
 ## Convention
 
 - **Single-file stories**: Each component lives in a single \`.stories.tsx\` file under \`src/\` or \`__ai_drafts__/\`.
-- **Draft location**: AI-generated prototypes go to \`__ai_drafts__/\`. Promoted files move to \`src/components/\`.
 - **File naming**: Use \`ComponentName.stories.tsx\` format.
 
 ## MCP Tools

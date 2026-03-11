@@ -80,40 +80,6 @@ export const Default: Story = {};
     return `__ai_drafts__/${fileName}`;
   }
 
-  /**
-   * Copy the live story file into the staging directory.
-   * Returns the absolute staging path (with .staging extension).
-   */
-  copyToStaging(liveAbsPath: string): string {
-    this.ensureStagingDir();
-    const basename = path.basename(liveAbsPath);
-    const stagingPath = path.join(this.tempDir, `${basename}.staging`);
-    fs.copyFileSync(liveAbsPath, stagingPath);
-    return stagingPath;
-  }
-
-  /**
-   * Atomically promote the staging file to the live path.
-   * This triggers a single HMR event.
-   */
-  promoteStaging(stagingAbsPath: string, liveAbsPath: string): void {
-    const content = fs.readFileSync(stagingAbsPath, "utf-8");
-    this.atomicWrite(liveAbsPath, content);
-    this.cleanupStaging(stagingAbsPath);
-  }
-
-  /**
-   * Delete the staging file if it exists.
-   */
-  cleanupStaging(stagingAbsPath: string): void {
-    try {
-      if (fs.existsSync(stagingAbsPath)) {
-        fs.unlinkSync(stagingAbsPath);
-      }
-    } catch {
-      // Best-effort cleanup
-    }
-  }
 
   unwatchFile(filePath: string): void {
     const watcher = this.watchers.get(filePath);

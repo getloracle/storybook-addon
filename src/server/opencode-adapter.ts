@@ -1,19 +1,54 @@
+import path from "path";
+import { pathToFileURL } from "url";
 import type { OpencodeClient } from "@opencode-ai/sdk";
-import type { StreamEvent } from "../types.js";
+import type { StreamEvent, ImageAttachment } from "../types.js";
 
 interface OpenCodeSession {
   sessionId: string;
   abortController: AbortController;
 }
 
+export interface ModelConfig {
+  providerID: string;
+  modelID: string;
+}
+
 export class OpenCodeAdapter {
   private projectRoot: string;
   private client: OpencodeClient;
   private sessions: Map<string, OpenCodeSession> = new Map();
+  private model: ModelConfig | null = null;
 
   constructor(projectRoot: string, client: OpencodeClient) {
     this.projectRoot = projectRoot;
     this.client = client;
+  }
+
+  setModel(model: ModelConfig): void {
+    this.model = model;
+  }
+
+  /**
+   * Allow file edits for the current generation.
+   * The edit permission only supports simple values ("ask" | "allow" | "deny"),
+   * so we set it to "allow" and rely on prompt instructions (scope_constraint)
+   * to restrict edits to the target file.
+   */
+  async setAllowedEditPath(filePath: string): Promise<void> {
+    // Update runtime config via API
+    try {
+      await this.client.config.update({
+        body: {
+          permission: {
+            edit: "allow",
+          },
+        },
+        query: { directory: this.projectRoot },
+      });
+      console.log("[loracle] Edit permission set to allow for:", filePath);
+    } catch (err) {
+      console.warn("[loracle] Failed to update runtime config:", err);
+    }
   }
 
   async createOrGetSession(storyId: string): Promise<string> {
@@ -51,7 +86,8 @@ export class OpenCodeAdapter {
 
   async sendMessage(
     storyId: string,
-    prompt: string
+    prompt: string,
+    image?: ImageAttachment
   ): Promise<{
     sessionId: string;
     stream: AsyncIterable<StreamEvent>;
@@ -66,17 +102,38 @@ export class OpenCodeAdapter {
 
     async function* streamEvents(): AsyncIterable<StreamEvent> {
       // Subscribe to events BEFORE sending the prompt so we don't miss anything
-      // event.subscribe() returns { stream: AsyncGenerator<Event> }
       const eventResult = await self.client.event.subscribe({
         query: { directory: self.projectRoot },
       });
       const sseStream = eventResult.stream;
 
-      // Send prompt async (fire-and-forget)
+      const parts: Array<{ type: string; text?: string; mime?: string; url?: string; filename?: string }> = [];
+      parts.push({ type: "text", text: prompt });
+
+      // Send image as a FilePartInput with file:// URL — OpenCode reads the file
+      // from disk and converts to base64 internally (data: URLs only work for text/plain)
+      if (image?.path) {
+        const absolutePath = path.isAbsolute(image.path)
+          ? image.path
+          : path.resolve(self.projectRoot, image.path);
+        parts.push({
+          type: "file",
+          mime: image.mimeType || "image/png",
+          url: pathToFileURL(absolutePath).href,
+          filename: path.basename(absolutePath),
+        });
+      }
+
       const promptResult = await self.client.session.promptAsync({
         path: { id: sessionId },
         body: {
-          parts: [{ type: "text", text: prompt }],
+          parts: parts as Array<{ type: "text"; text: string } | { type: "file"; mime: string; url: string; filename?: string }>,
+          ...(self.model && {
+            model: {
+              providerID: self.model.providerID,
+              modelID: self.model.modelID,
+            },
+          }),
         },
         query: { directory: self.projectRoot },
       });
@@ -89,14 +146,17 @@ export class OpenCodeAdapter {
 
       const abortSignal = session.abortController.signal;
 
+      // Track IDs to filter user messages, reasoning, and deduplicate
+      let userMessageId: string | null = null;
+      const reasoningPartIds = new Set<string>();
+      const deltaPartIds = new Set<string>(); // parts that received deltas (skip their updated text)
+
       try {
         for await (const event of sseStream) {
           if (abortSignal.aborted) break;
 
           if (!event) continue;
 
-          // The event is an Event union type (e.g. { type: "message.part.updated", properties: ... })
-          // It may come as a raw object or need parsing
           let parsed: { type: string; properties: Record<string, unknown> };
           if (typeof event === "string") {
             try {
@@ -108,21 +168,91 @@ export class OpenCodeAdapter {
             parsed = event as { type: string; properties: Record<string, unknown> };
           }
 
-          // Filter events for our session
+          // Verbose trace: log every raw SSE event
+          console.log("[loracle][trace] SSE event:", parsed.type, JSON.stringify(parsed.properties ?? {}).slice(0, 300));
+
           const props = parsed.properties || {};
+          const part = props.part as { sessionID?: string; messageID?: string; type?: string; id?: string } | undefined;
           const eventSessionId =
-            (props.sessionID as string) ||
-            (props.part as { sessionID?: string })?.sessionID;
+            (props.sessionID as string) || part?.sessionID;
 
-          if (eventSessionId && eventSessionId !== sessionId) continue;
+          // Filter events for our session only
+          if (eventSessionId && eventSessionId !== sessionId) {
+            console.log("[loracle][trace] Skipping event for other session:", eventSessionId);
+            continue;
+          }
 
-          // Map OpenCode events to StreamEvent
+          // Auto-approve permission requests so tools (MCP, edit, bash) don't hang
+          if (parsed.type === "permission.updated") {
+            const permissionId = (props.id as string) || "";
+            if (permissionId) {
+              console.log("[loracle] Auto-approving permission:", permissionId, props.title);
+              self.client
+                .postSessionIdPermissionsPermissionId({
+                  path: { id: sessionId, permissionID: permissionId },
+                  body: { response: "always" },
+                  query: { directory: self.projectRoot },
+                })
+                .catch((err) => {
+                  console.warn("[loracle] Failed to approve permission:", err);
+                });
+            }
+            continue;
+          }
+
+          // Identify the user message from message.updated with role=user
+          if (parsed.type === "message.updated") {
+            const info = props.info as { id?: string; role?: string } | undefined;
+            if (info?.role === "user" && info.id && !userMessageId) {
+              userMessageId = info.id;
+            }
+          }
+
+          const eventMessageId = (props.messageID as string) || part?.messageID;
+          if (eventMessageId && eventMessageId === userMessageId) {
+            console.log("[loracle][trace] Skipping user message event:", parsed.type);
+            continue;
+          }
+
+          // Track reasoning part IDs to filter their deltas
+          if (parsed.type === "message.part.updated" && part?.type === "reasoning" && part.id) {
+            console.log("[loracle][trace] Reasoning part detected, will filter deltas for:", part.id);
+            reasoningPartIds.add(part.id);
+          }
+
+          // For deltas: skip reasoning, track text partIDs for dedup
+          if (parsed.type === "message.part.delta") {
+            const partId = props.partID as string;
+            if (partId && reasoningPartIds.has(partId)) continue;
+            if (partId) deltaPartIds.add(partId);
+          }
+
+          // For message.part.updated text: skip if we already streamed via deltas
+          if (parsed.type === "message.part.updated" && part?.type === "text" && part.id) {
+            if (deltaPartIds.has(part.id)) continue;
+          }
+
+          // Handle session.idle: break the loop (done is emitted after).
+          // We break instead of returning immediately so any buffered text events
+          // from the final step are still processed before emitting done.
+          if (parsed.type === "session.idle") {
+            console.log("[loracle][trace] Session idle — ending stream");
+            break;
+          }
+
+          if (parsed.type === "session.error") {
+            const error = props.error as { message?: string } | string | undefined;
+            const msg =
+              typeof error === "string"
+                ? error
+                : (error as { message?: string })?.message ?? "Unknown error";
+            yield { type: "error", content: msg };
+            return;
+          }
+
           const mapped = self.mapEvent(parsed);
           if (mapped) {
             yield mapped;
-            if (mapped.type === "done" || mapped.type === "error") {
-              return;
-            }
           }
         }
       } catch (err) {
@@ -145,6 +275,7 @@ export class OpenCodeAdapter {
     if (!session) return;
 
     session.abortController.abort();
+    this.sessions.delete(storyId);
 
     // Abort the session on the server
     this.client.session
@@ -163,6 +294,15 @@ export class OpenCodeAdapter {
   }): StreamEvent | null {
     const { type, properties } = event;
 
+    // Streaming text deltas — preferred for real-time streaming
+    if (type === "message.part.delta") {
+      const delta = properties.delta as string | undefined;
+      if (delta) {
+        return { type: "text", content: delta };
+      }
+      return null;
+    }
+
     if (type === "message.part.updated") {
       const part = properties.part as {
         type: string;
@@ -170,13 +310,13 @@ export class OpenCodeAdapter {
         tool?: string;
         state?: { status: string; input?: Record<string, unknown> };
       };
-      const delta = properties.delta as string | undefined;
 
       if (!part) return null;
 
+      // Text parts from assistant — emit as fallback when deltas don't fire.
+      // User message text is already filtered by messageID in the stream loop.
       if (part.type === "text") {
-        // Use delta for streaming text, fall back to full text
-        const content = delta ?? part.text ?? "";
+        const content = part.text ?? "";
         if (!content) return null;
         return { type: "text", content };
       }
@@ -184,6 +324,7 @@ export class OpenCodeAdapter {
       if (part.type === "tool") {
         const state = part.state;
         if (state?.status === "running" || state?.status === "pending") {
+          console.log(`[loracle][trace] Tool call: ${part.tool} (${state.status})`, JSON.stringify(state.input ?? {}).slice(0, 500));
           return {
             type: "tool_use",
             toolName: part.tool,
@@ -191,12 +332,16 @@ export class OpenCodeAdapter {
           };
         }
         if (state?.status === "completed") {
+          const output = (state as Record<string, unknown>).output;
+          console.log(`[loracle][trace] Tool done: ${part.tool}`, output ? JSON.stringify(output).slice(0, 300) : "(no output)");
           return {
             type: "tool_result",
             toolName: part.tool,
           };
         }
         if (state?.status === "error") {
+          const errorDetail = (state as Record<string, unknown>).error;
+          console.error(`[loracle][trace] Tool error: ${part.tool}`, errorDetail ? JSON.stringify(errorDetail).slice(0, 300) : "");
           return {
             type: "error",
             content: `Tool error: ${part.tool}`,
@@ -207,18 +352,8 @@ export class OpenCodeAdapter {
       return null;
     }
 
-    if (type === "session.idle") {
-      return { type: "done", content: "completed" };
-    }
-
-    if (type === "session.error") {
-      const error = properties.error as { message?: string } | string | undefined;
-      const msg =
-        typeof error === "string"
-          ? error
-          : error?.message ?? "Unknown error";
-      return { type: "error", content: msg };
-    }
+    // session.idle and session.error are handled directly in the stream loop
+    // (not here) to allow flushing buffered events before terminating.
 
     return null;
   }

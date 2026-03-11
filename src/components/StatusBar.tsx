@@ -41,26 +41,6 @@ const StoryName = styled.span({
   whiteSpace: "nowrap",
 });
 
-const DraftBadge = styled.span({
-  fontSize: "10px",
-  padding: "1px 6px",
-  borderRadius: "8px",
-  backgroundColor: "#422006",
-  color: "#fbbf24",
-  fontWeight: 600,
-});
-
-const PromoteButton = styled.button({
-  fontSize: "10px",
-  padding: "2px 8px",
-  border: "1px solid #3b82f6",
-  borderRadius: "4px",
-  backgroundColor: "transparent",
-  color: "#60a5fa",
-  cursor: "pointer",
-  "&:hover": { backgroundColor: "#1e3a5f" },
-});
-
 const NewDraftButton = styled.button({
   fontSize: "10px",
   padding: "2px 8px",
@@ -81,15 +61,11 @@ const RightGroup = styled.div({
 
 interface StatusBarProps {
   storyTitle: string | null;
-  isDraft?: boolean;
-  onPromote?: () => void;
   onNewDraft?: () => void;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
   storyTitle,
-  isDraft,
-  onPromote,
   onNewDraft,
 }) => {
   const [connected, setConnected] = useState(false);
@@ -115,10 +91,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         <StatusIndicator connected={connected}>
           {connected ? "Connected" : "Disconnected"}
         </StatusIndicator>
-        {isDraft && <DraftBadge>DRAFT</DraftBadge>}
-        {isDraft && onPromote && (
-          <PromoteButton onClick={onPromote}>Promote</PromoteButton>
-        )}
       </LeftGroup>
       <RightGroup>
         {storyTitle && <StoryName>{storyTitle}</StoryName>}

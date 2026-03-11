@@ -8,7 +8,6 @@ import { StatusBar } from "./StatusBar.js";
 import { MessageList } from "./MessageList.js";
 import { ActivityStatus } from "./ActivityStatus.js";
 import { PromptInput } from "./PromptInput.js";
-import { PromoteDialog } from "./PromoteDialog.js";
 import { NewDraftDialog } from "./NewDraftDialog.js";
 import { Onboarding } from "./Onboarding.js";
 
@@ -42,42 +41,44 @@ const BannerButton = styled.button({
   "&:hover": { backgroundColor: "#854d0e" },
 });
 
+// Module-level cache so provider status survives component remounts
+let _providerDetected = false;
+
 export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) => {
   const sbApi = useStorybookApi();
   const loracleApi = useLoracleApi();
   const { storyId, storyTitle, storyFilePath } = useCurrentStory();
   const { messages, state, phase, streamingText, send, stop, isActive } = useChat(storyId, storyFilePath);
-  const [showPromote, setShowPromote] = useState(false);
   const [showNewDraft, setShowNewDraft] = useState(false);
   const [fileChanged, setFileChanged] = useState(false);
-  const [providerReady, setProviderReady] = useState<boolean | null>(null);
+  const [providerReady, setProviderReady] = useState<boolean | null>(_providerDetected ? true : null);
   const pendingPromptRef = useRef<string | null>(null);
   const warmedSessionsRef = useRef<Set<string>>(new Set());
 
-  const isDraft = storyFilePath?.includes("__ai_drafts__") ?? false;
 
-  // Check provider status on mount
+  // Poll provider status until configured (never gives up — keeps trying every 2s)
   useEffect(() => {
-    fetch("/loracle-api/provider-status")
-      .then((res) => res.json())
-      .then((data) => {
-        setProviderReady(data.configured === true);
-      })
-      .catch(() => {
-        setProviderReady(false);
-      });
+    if (_providerDetected) return;
+    let cancelled = false;
+    const check = () => {
+      fetch("/loracle-api/provider-status")
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          if (data.configured) {
+            _providerDetected = true;
+            setProviderReady(true);
+          } else {
+            setTimeout(check, 2000);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setTimeout(check, 2000);
+        });
+    };
+    check();
+    return () => { cancelled = true; };
   }, []);
-
-  // Show onboarding if provider not configured
-  if (providerReady === false) {
-    return (
-      <Onboarding
-        onConnected={() => {
-          setProviderReady(true);
-        }}
-      />
-    );
-  }
 
   // Eagerly warm the OpenCode session when panel is active for a story
   useEffect(() => {
@@ -171,25 +172,22 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
     [loracleApi, sbApi]
   );
 
-  const handlePromote = useCallback(
-    async (targetDir: string) => {
-      if (!storyFilePath) return;
-      await fetch("/loracle-api/promote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourcePath: storyFilePath, targetDir }),
-      });
-      setShowPromote(false);
-    },
-    [storyFilePath]
-  );
+
+  // Show onboarding if provider not configured (after all hooks)
+  if (providerReady === false) {
+    return (
+      <Onboarding
+        onConnected={() => {
+          setProviderReady(true);
+        }}
+      />
+    );
+  }
 
   return (
     <Container>
       <StatusBar
         storyTitle={storyTitle}
-        isDraft={isDraft}
-        onPromote={isDraft ? () => setShowPromote(true) : undefined}
         onNewDraft={() => setShowNewDraft(true)}
       />
       {fileChanged && (
@@ -214,13 +212,6 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
         isStreaming={isActive}
         disabled={!storyId}
       />
-      {showPromote && storyFilePath && (
-        <PromoteDialog
-          storyFilePath={storyFilePath}
-          onPromote={handlePromote}
-          onCancel={() => setShowPromote(false)}
-        />
-      )}
       {showNewDraft && (
         <NewDraftDialog
           onCreate={handleCreateDraft}

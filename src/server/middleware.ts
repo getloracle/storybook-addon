@@ -63,6 +63,13 @@ export function createMiddleware(projectRoot: string) {
       .then((status) => {
         providerStatus = status;
         console.log("[loracle] Provider status:", status);
+        if (status.provider) {
+          const model = status.model ?? "us.anthropic.claude-sonnet-4-6";
+          generationManager.setModel({
+            providerID: status.provider,
+            modelID: model,
+          });
+        }
       })
       .catch((err) => {
         console.warn("[loracle] Provider detection failed:", err);
@@ -105,7 +112,14 @@ export function createMiddleware(projectRoot: string) {
 
         try {
           await configureProvider(opencodeClient, provider, apiKey, projectRoot);
-          providerStatus = { configured: true, provider, model: null };
+          const detectedStatus = await detectProvider(opencodeClient, projectRoot);
+          providerStatus = detectedStatus;
+          if (detectedStatus.provider && detectedStatus.model) {
+            generationManager.setModel({
+              providerID: detectedStatus.provider,
+              modelID: detectedStatus.model,
+            });
+          }
           json(res, { configured: true, provider });
         } catch (err) {
           const message = err instanceof Error ? err.message : "Failed to configure provider";
@@ -273,43 +287,6 @@ export function createMiddleware(projectRoot: string) {
             500
           );
         }
-      },
-    },
-    // Promote draft
-    {
-      method: "POST",
-      pattern: /^\/loracle-api\/promote$/,
-      handler: async (req, res) => {
-        const body = await parseBody(req);
-        const { sourcePath, targetDir } = body as {
-          sourcePath: string;
-          targetDir: string;
-        };
-        if (!sourcePath || !targetDir) {
-          json(res, { error: "sourcePath and targetDir required" }, 400);
-          return;
-        }
-
-        const absSource = path.isAbsolute(sourcePath)
-          ? sourcePath
-          : path.join(projectRoot, sourcePath);
-        const absTargetDir = path.isAbsolute(targetDir)
-          ? targetDir
-          : path.join(projectRoot, targetDir);
-        const filename = path.basename(absSource);
-        const absTarget = path.join(absTargetDir, filename);
-
-        if (!fs.existsSync(absSource)) {
-          json(res, { error: "Source file not found" }, 404);
-          return;
-        }
-
-        if (!fs.existsSync(absTargetDir)) {
-          fs.mkdirSync(absTargetDir, { recursive: true });
-        }
-
-        fs.renameSync(absSource, absTarget);
-        json(res, { promoted: true, target: absTarget });
       },
     },
     // Create new draft story

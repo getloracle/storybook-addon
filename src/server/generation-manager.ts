@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import { OpenCodeAdapter } from "./opencode-adapter.js";
+import type { ModelConfig } from "./opencode-adapter.js";
 import { PromptBuilder } from "./prompt-builder.js";
 import { SessionStore } from "./session-store.js";
 import { FileManager } from "./file-manager.js";
@@ -41,6 +42,12 @@ export class GenerationManager {
 
   setClient(client: OpencodeClient): void {
     this.adapter = new OpenCodeAdapter(this.projectRoot, client);
+  }
+
+  setModel(model: ModelConfig): void {
+    if (this.adapter) {
+      this.adapter.setModel(model);
+    }
   }
 
   async warmSession(storyId: string): Promise<void> {
@@ -132,24 +139,32 @@ export class GenerationManager {
       promptLength: fullPrompt.length,
     });
 
-    // Start streaming in background
-    this.consumeStream(generation, fullPrompt);
+    // Start streaming in background (permission restriction is applied inside)
+    this.consumeStream(generation, fullPrompt, opts.image);
 
     return id;
   }
 
   private async consumeStream(
     generation: Generation,
-    prompt: string
+    prompt: string,
+    image?: ImageAttachment
   ): Promise<void> {
     let streamError = false;
     let openCodeSessionId: string | undefined;
 
     console.log("[loracle] Consuming stream for generation:", generation.id);
     try {
+      // Restrict edits to the current story file before sending the prompt
+      if (generation.liveAbsPath) {
+        const relPath = path.relative(this.projectRoot, generation.liveAbsPath);
+        await this.adapter!.setAllowedEditPath(relPath);
+      }
+
       const { sessionId, stream } = await this.adapter!.sendMessage(
         generation.storyId,
-        prompt
+        prompt,
+        image
       );
       openCodeSessionId = sessionId;
 
