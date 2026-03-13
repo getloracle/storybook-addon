@@ -13,11 +13,33 @@ export interface ModelConfig {
   modelID: string;
 }
 
+// Tools that are always safe to auto-approve (no path restriction)
+const ALWAYS_ALLOW_TOOLS = new Set([
+  "Read",
+  "Glob",
+  "Grep",
+  "ListDirectory",
+]);
+
+// Tools that are allowed only when targeting the current story file
+const PATH_RESTRICTED_TOOLS = new Set([
+  "Write",
+  "Edit",
+]);
+
+// Tools that must never be approved
+const ALWAYS_DENY_TOOLS = new Set([
+  "Bash",
+  "Terminal",
+  "WebFetch",
+]);
+
 export class OpenCodeAdapter {
   private projectRoot: string;
   private client: OpencodeClient;
   private sessions: Map<string, OpenCodeSession> = new Map();
   private model: ModelConfig | null = null;
+  private currentTargetPath: string | null = null;
 
   constructor(projectRoot: string, client: OpencodeClient) {
     this.projectRoot = projectRoot;
@@ -29,26 +51,83 @@ export class OpenCodeAdapter {
   }
 
   /**
-   * Allow file edits for the current generation.
-   * The edit permission only supports simple values ("ask" | "allow" | "deny"),
-   * so we set it to "allow" and rely on prompt instructions (scope_constraint)
-   * to restrict edits to the target file.
+   * Allow file edits for the current generation and track the target path
+   * for permission filtering. Bash and webfetch are denied at the config level.
    */
   async setAllowedEditPath(filePath: string): Promise<void> {
-    // Update runtime config via API
+    this.currentTargetPath = filePath;
     try {
       await this.client.config.update({
         body: {
           permission: {
             edit: "allow",
+            bash: "deny",
+            webfetch: "deny",
           },
         },
         query: { directory: this.projectRoot },
       });
-      console.log("[loracle] Edit permission set to allow for:", filePath);
+      console.log("[loracle] Permissions configured — edit: allow, bash: deny, webfetch: deny. Target:", filePath);
     } catch (err) {
       console.warn("[loracle] Failed to update runtime config:", err);
     }
+  }
+
+  /**
+   * Decide whether to approve or reject a permission request.
+   * Returns "always" for safe tools, "reject" for dangerous ones,
+   * and conditionally approves Write/Edit only for the target story file.
+   */
+  private resolvePermission(
+    toolType: string,
+    title: string,
+    pattern?: string | string[]
+  ): "always" | "reject" {
+    // MCP tools (e.g. "loracle:get_components") are always allowed
+    if (toolType.includes(":")) {
+      return "always";
+    }
+
+    if (ALWAYS_DENY_TOOLS.has(toolType)) {
+      console.warn("[loracle] DENIED permission for tool:", toolType, title);
+      return "reject";
+    }
+
+    if (ALWAYS_ALLOW_TOOLS.has(toolType)) {
+      return "always";
+    }
+
+    if (PATH_RESTRICTED_TOOLS.has(toolType)) {
+      if (!this.currentTargetPath) {
+        console.warn("[loracle] DENIED Write/Edit — no target path set:", title);
+        return "reject";
+      }
+
+      const paths = Array.isArray(pattern) ? pattern : pattern ? [pattern] : [];
+      if (paths.length === 0 && title) {
+        paths.push(title);
+      }
+
+      const targetDir = path.dirname(this.currentTargetPath);
+      const allowed = paths.length === 0 || paths.some((p) => {
+        const normalized = path.normalize(p);
+        return (
+          normalized === path.normalize(this.currentTargetPath!) ||
+          normalized.startsWith(path.normalize(targetDir) + path.sep)
+        );
+      });
+
+      if (!allowed) {
+        console.warn("[loracle] DENIED Write/Edit outside target path:", paths, "expected:", this.currentTargetPath);
+        return "reject";
+      }
+
+      return "always";
+    }
+
+    // Unknown tool — deny by default
+    console.warn("[loracle] DENIED unknown tool permission:", toolType, title);
+    return "reject";
   }
 
   async createOrGetSession(storyId: string): Promise<string> {
@@ -182,19 +261,23 @@ export class OpenCodeAdapter {
             continue;
           }
 
-          // Auto-approve permission requests so tools (MCP, edit, bash) don't hang
+          // Approve or reject permission requests based on tool allowlist
           if (parsed.type === "permission.updated") {
             const permissionId = (props.id as string) || "";
             if (permissionId) {
-              console.log("[loracle] Auto-approving permission:", permissionId, props.title);
+              const toolType = (props.type as string) || "";
+              const title = (props.title as string) || "";
+              const pattern = props.pattern as string | string[] | undefined;
+              const response = self.resolvePermission(toolType, title, pattern);
+              console.log(`[loracle] Permission ${response}:`, toolType, title);
               self.client
                 .postSessionIdPermissionsPermissionId({
                   path: { id: sessionId, permissionID: permissionId },
-                  body: { response: "always" },
+                  body: { response },
                   query: { directory: self.projectRoot },
                 })
                 .catch((err) => {
-                  console.warn("[loracle] Failed to approve permission:", err);
+                  console.warn("[loracle] Failed to respond to permission:", err);
                 });
             }
             continue;

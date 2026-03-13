@@ -139,6 +139,12 @@ export const Default: Story = {
 };
 \`\`\`
 
+## Security Boundaries
+
+- You do NOT have Bash/shell access. Do not attempt to run shell commands.
+- You can only edit the current story file. Attempts to write to other files will be denied.
+- Available tools: Read, Glob, Grep, Write, Edit, and MCP tools (get_components).
+
 ## Validation Required
 
 You MUST typecheck the story file before completing any generation or modification. Fix any errors found.
