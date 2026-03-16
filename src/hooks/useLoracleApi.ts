@@ -30,7 +30,14 @@ export function useLoracleApi() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(opts),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(data.error || `Prompt failed (${res.status})`);
+    }
     const data = await res.json();
+    if (!data.generationId) {
+      throw new Error("Server returned no generationId");
+    }
     return data.generationId;
   }
 

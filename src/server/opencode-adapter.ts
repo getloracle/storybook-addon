@@ -180,11 +180,55 @@ export class OpenCodeAdapter {
     const self = this;
 
     async function* streamEvents(): AsyncIterable<StreamEvent> {
-      // Subscribe to events BEFORE sending the prompt so we don't miss anything
+      // Subscribe to events and start consuming BEFORE sending the prompt.
+      // The SDK's event.subscribe() returns a lazy async generator — the HTTP
+      // connection is only established when iterated. We must pull from it
+      // eagerly to avoid a race where fast-completing prompts emit session.idle
+      // before we connect.
       const eventResult = await self.client.event.subscribe({
         query: { directory: self.projectRoot },
       });
       const sseStream = eventResult.stream;
+
+      // Eagerly pull SSE events into a buffer so the HTTP connection is active
+      // while we send the prompt. This closes the race window.
+      type ParsedEvent = { type: string; properties: Record<string, unknown> };
+      const eventBuffer: ParsedEvent[] = [];
+      let sseStreamDone = false;
+      let sseStreamError: Error | null = null;
+      let resolveWaiter: (() => void) | null = null;
+
+      // Start consuming immediately (fire-and-forget, awaited via buffer)
+      const _consumeSse = (async () => {
+        try {
+          for await (const event of sseStream) {
+            if (!event) continue;
+            let parsed: ParsedEvent;
+            if (typeof event === "string") {
+              try { parsed = JSON.parse(event); } catch { continue; }
+            } else {
+              parsed = event as ParsedEvent;
+            }
+            eventBuffer.push(parsed);
+            resolveWaiter?.();
+          }
+        } catch (err) {
+          sseStreamError = err instanceof Error ? err : new Error(String(err));
+        } finally {
+          sseStreamDone = true;
+          resolveWaiter?.();
+        }
+      })();
+
+      // Helper: pull next parsed event from the buffer (waits if needed)
+      async function nextEvent(): Promise<ParsedEvent | null> {
+        while (eventBuffer.length === 0 && !sseStreamDone) {
+          await new Promise<void>((r) => { resolveWaiter = r; });
+        }
+        if (eventBuffer.length > 0) return eventBuffer.shift()!;
+        if (sseStreamError) throw sseStreamError;
+        return null; // stream ended
+      }
 
       const parts: Array<{ type: string; text?: string; mime?: string; url?: string; filename?: string }> = [];
       parts.push({ type: "text", text: prompt });
@@ -231,21 +275,11 @@ export class OpenCodeAdapter {
       const deltaPartIds = new Set<string>(); // parts that received deltas (skip their updated text)
 
       try {
-        for await (const event of sseStream) {
+        while (true) {
           if (abortSignal.aborted) break;
 
-          if (!event) continue;
-
-          let parsed: { type: string; properties: Record<string, unknown> };
-          if (typeof event === "string") {
-            try {
-              parsed = JSON.parse(event);
-            } catch {
-              continue;
-            }
-          } else {
-            parsed = event as { type: string; properties: Record<string, unknown> };
-          }
+          const parsed = await nextEvent();
+          if (!parsed) break;
 
           // Verbose trace: log every raw SSE event
           console.log("[loracle][trace] SSE event:", parsed.type, JSON.stringify(parsed.properties ?? {}).slice(0, 300));
@@ -316,8 +350,6 @@ export class OpenCodeAdapter {
           }
 
           // Handle session.idle: break the loop (done is emitted after).
-          // We break instead of returning immediately so any buffered text events
-          // from the final step are still processed before emitting done.
           if (parsed.type === "session.idle") {
             console.log("[loracle][trace] Session idle — ending stream");
             break;
