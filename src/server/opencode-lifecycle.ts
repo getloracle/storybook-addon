@@ -16,16 +16,13 @@ export interface LifecycleOptions {
 
 /**
  * Read the project's opencode.json (standard OpenCode config) and
- * .storybook/opencode.json (addon-specific provider/model overrides),
+ * .storybook/opencode.json (addon-specific overrides for provider, model, and MCP),
  * then merge them into a single config object for the server.
  *
  * OPENCODE_CONFIG_CONTENT env var overrides file-based config, so we must
  * explicitly read and forward the file config to createOpencodeServer.
  */
-function buildServerConfig(
-  projectRoot: string,
-  mcpConfig: Record<string, { type: "local"; command: string[] }> | null
-): Record<string, unknown> {
+function buildServerConfig(projectRoot: string): Record<string, unknown> {
   let fileConfig: Record<string, unknown> = {};
 
   // 1. Read project-root opencode.json (standard OpenCode config)
@@ -39,7 +36,7 @@ function buildServerConfig(
     }
   }
 
-  // 2. Read .storybook/opencode.json for addon-specific provider/model
+  // 2. Read .storybook/opencode.json for addon-specific provider/model/mcp
   const storybookConfigPath = path.join(projectRoot, ".storybook", "opencode.json");
   if (fs.existsSync(storybookConfigPath)) {
     try {
@@ -55,14 +52,15 @@ function buildServerConfig(
         }
         console.log("[loracle] Provider from .storybook/opencode.json:", addonConfig.provider);
       }
+
+      // Merge MCP config from .storybook/opencode.json
+      if (addonConfig.mcp && typeof addonConfig.mcp === "object") {
+        fileConfig.mcp = { ...(fileConfig.mcp as Record<string, unknown> ?? {}), ...addonConfig.mcp };
+        console.log("[loracle] MCP config from .storybook/opencode.json:", Object.keys(addonConfig.mcp));
+      }
     } catch (err) {
       console.warn("[loracle] Failed to parse .storybook/opencode.json:", err);
     }
-  }
-
-  // 3. Merge MCP config
-  if (mcpConfig) {
-    fileConfig.mcp = { ...(fileConfig.mcp as Record<string, unknown> ?? {}), ...mcpConfig };
   }
 
   return fileConfig;
@@ -86,16 +84,10 @@ export async function startOpenCode(
       "@opencode-ai/sdk"
     );
 
-    // Build MCP config to pass at server startup.
-    // OpenCode's type:"remote" silently fails to register tools (anomalyco/opencode#9425).
-    // Workaround: use mcp-remote to bridge the remote loracle server to stdio,
-    // then register it as type:"local" which works correctly.
-    const mcpConfig = buildLoracleMcpConfig(opts.projectRoot);
-
-    // Merge project opencode.json + .storybook/opencode.json + MCP into one config.
+    // Merge project opencode.json + .storybook/opencode.json into one config.
     // This is critical because OPENCODE_CONFIG_CONTENT env var (used by the SDK)
     // overrides file-based config — so we must forward everything explicitly.
-    const serverConfig = buildServerConfig(opts.projectRoot, mcpConfig);
+    const serverConfig = buildServerConfig(opts.projectRoot);
 
     console.log("[loracle] Starting OpenCode server...");
     const server = await createOpencodeServer({
@@ -123,52 +115,6 @@ export async function startOpenCode(
     startPromise = null;
     throw err;
   }
-}
-
-/**
- * Read the loracle entry from .mcp.json and build an OpenCode MCP config
- * that uses mcp-remote as a stdio bridge (works around anomalyco/opencode#9425).
- */
-function buildLoracleMcpConfig(
-  projectRoot: string
-): Record<string, { type: "local"; command: string[] }> | null {
-  // Walk up from projectRoot to find .mcp.json
-  let dir = projectRoot;
-  while (dir !== path.dirname(dir)) {
-    const mcpPath = path.join(dir, ".mcp.json");
-    if (fs.existsSync(mcpPath)) {
-      try {
-        const raw = JSON.parse(fs.readFileSync(mcpPath, "utf-8"));
-        const mcpServers = raw.mcpServers || {};
-        const loracleEntry = mcpServers.loracle;
-        if (!loracleEntry) {
-          console.log("[loracle] No loracle entry in .mcp.json");
-          return null;
-        }
-
-        const url = loracleEntry.url as string;
-        const headers = loracleEntry.headers as Record<string, string> | undefined;
-
-        // Build mcp-remote command: npx -y mcp-remote <url> [--header key:value ...]
-        const command = ["npx", "-y", "mcp-remote", url];
-        if (headers) {
-          for (const [key, value] of Object.entries(headers)) {
-            command.push("--header", `${key}:${value}`);
-          }
-        }
-
-        console.log("[loracle] Configured loracle MCP via mcp-remote (stdio bridge)");
-        return { loracle: { type: "local", command } };
-      } catch {
-        console.warn("[loracle] Failed to parse .mcp.json");
-        return null;
-      }
-    }
-    dir = path.dirname(dir);
-  }
-
-  console.log("[loracle] No .mcp.json found");
-  return null;
 }
 
 export function getOpenCodeClient(): OpencodeClient | null {

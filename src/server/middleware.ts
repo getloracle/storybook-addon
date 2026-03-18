@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { IncomingMessage, ServerResponse } from "http";
+import { isHostAllowed } from "host-validation-middleware";
 import { SessionStore } from "./session-store.js";
 import { FileManager } from "./file-manager.js";
 import { GenerationManager } from "./generation-manager.js";
@@ -381,6 +382,14 @@ export function createMiddleware(projectRoot: string) {
 
     if (!url.startsWith("/loracle-api/")) {
       next();
+      return;
+    }
+
+    // Reject requests from non-localhost hosts (DNS rebinding protection)
+    const allowedHosts = Object.freeze(["localhost", "127.0.0.1", "::1"]);
+    if (!isHostAllowed(req.headers.host, allowedHosts)) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Forbidden: invalid host" }));
       return;
     }
 
