@@ -6,7 +6,7 @@ import { SessionStore } from "./session-store.js";
 import { FileManager } from "./file-manager.js";
 import { GenerationManager } from "./generation-manager.js";
 import { ImageHandler } from "./image-handler.js";
-import { detectProvider, configureProvider } from "./provider-detector.js";
+import { detectProvider } from "./provider-detector.js";
 import type { OpencodeClient } from "@opencode-ai/sdk";
 
 interface Route {
@@ -91,41 +91,6 @@ export function createMiddleware(projectRoot: string) {
       pattern: /^\/loracle-api\/provider-status$/,
       handler: (_req, res) => {
         json(res, providerStatus);
-      },
-    },
-    // Connect endpoint (manual API key)
-    {
-      method: "POST",
-      pattern: /^\/loracle-api\/connect$/,
-      handler: async (req, res) => {
-        if (!opencodeClient) {
-          json(res, { error: "AI backend is still starting. Please try again." }, 503);
-          return;
-        }
-
-        const body = await parseBody(req);
-        const { provider, apiKey } = body as { provider: string; apiKey: string };
-
-        if (!provider || !apiKey) {
-          json(res, { error: "provider and apiKey required" }, 400);
-          return;
-        }
-
-        try {
-          await configureProvider(opencodeClient, provider, apiKey, projectRoot);
-          const detectedStatus = await detectProvider(opencodeClient, projectRoot);
-          providerStatus = detectedStatus;
-          if (detectedStatus.provider && detectedStatus.model) {
-            generationManager.setModel({
-              providerID: detectedStatus.provider,
-              modelID: detectedStatus.model,
-            });
-          }
-          json(res, { configured: true, provider });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "Failed to configure provider";
-          json(res, { error: message }, 400);
-        }
       },
     },
     // Eagerly warm up an OpenCode session for a story

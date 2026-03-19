@@ -63,15 +63,3 @@ export async function detectProvider(
   return { configured: false, provider: null, model: null };
 }
 
-export async function configureProvider(
-  client: OpencodeClient,
-  providerId: string,
-  apiKey: string,
-  projectRoot: string
-): Promise<void> {
-  await client.auth.set({
-    path: { id: providerId },
-    body: { type: "api", key: apiKey },
-    query: { directory: projectRoot },
-  });
-}

@@ -175,13 +175,7 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
 
   // Show onboarding if provider not configured (after all hooks)
   if (providerReady === false) {
-    return (
-      <Onboarding
-        onConnected={() => {
-          setProviderReady(true);
-        }}
-      />
-    );
+    return <Onboarding />;
   }
 
   return (
