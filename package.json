@@ -1,16 +1,55 @@
 {
   "name": "@loracle/storybook-addon",
   "version": "0.1.0",
+  "description": "AI-powered component development inside Storybook",
+  "author": "Loracle <team@getloracle.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://getloracle.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getloracle/loracle.git",
+    "directory": "packages/storybook-addon"
+  },
+  "bugs": {
+    "url": "https://github.com/getloracle/loracle/issues"
+  },
+  "keywords": [
+    "storybook-addon",
+    "storybook",
+    "ai",
+    "component-development",
+    "loracle",
+    "opencode"
+  ],
+  "storybook": {
+    "displayName": "Loracle",
+    "supportedFrameworks": ["react"],
+    "icon": "https://getloracle.com/loracle-icon.png"
+  },
   "type": "module",
   "main": "dist/preset.js",
   "exports": {
     ".": "./dist/preset.js",
     "./preset": "./dist/preset.js",
     "./manager": "./dist/manager.js",
+    "./preview": "./dist/preview.js",
     "./package.json": "./package.json"
   },
+  "bundler": {
+    "nodeEntries": ["./dist/preset.js"],
+    "managerEntries": ["./dist/manager.js"],
+    "previewEntries": ["./dist/preview.js"]
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup",
     "dev": "tsup --watch"
   },
   "dependencies": {
