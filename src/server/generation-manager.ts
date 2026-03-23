@@ -155,12 +155,6 @@ export class GenerationManager {
 
     console.log("[loracle] Consuming stream for generation:", generation.id);
     try {
-      // Restrict edits to the current story file before sending the prompt
-      if (generation.liveAbsPath) {
-        const relPath = path.relative(this.projectRoot, generation.liveAbsPath);
-        await this.adapter!.setAllowedEditPath(relPath);
-      }
-
       const { sessionId, stream } = await this.adapter!.sendMessage(
         generation.storyId,
         prompt,

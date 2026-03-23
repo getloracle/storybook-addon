@@ -37,10 +37,15 @@ function buildServerConfig(projectRoot: string): Record<string, unknown> {
   }
 
   // 2. Read .storybook/opencode.json for addon-specific provider/model/mcp
+  let hasUserPermissions = false;
   const storybookConfigPath = path.join(projectRoot, ".storybook", "opencode.json");
   if (fs.existsSync(storybookConfigPath)) {
     try {
       const addonConfig = JSON.parse(fs.readFileSync(storybookConfigPath, "utf-8"));
+
+      // Check if user explicitly configured permissions — if so, skip secure defaults
+      hasUserPermissions = !!addonConfig.permission;
+
       // Translate addon config (provider + model) into OpenCode's model format
       if (addonConfig.provider && addonConfig.model) {
         fileConfig.model = `${addonConfig.provider}/${addonConfig.model}`;
@@ -61,6 +66,38 @@ function buildServerConfig(projectRoot: string): Record<string, unknown> {
     } catch (err) {
       console.warn("[loracle] Failed to parse .storybook/opencode.json:", err);
     }
+  }
+
+  // 3. Apply secure defaults when user hasn't configured permissions
+  if (!hasUserPermissions) {
+    // Allow reads everywhere, writes only to story files.
+    // Everything else (read, glob, grep, list, skill, MCP tools) stays at opencode's default ("allow").
+    fileConfig.permission = {
+      edit: {
+        "*": "deny",
+        "**/*.stories.*": "allow",
+      },
+      write: {
+        "*": "deny",
+        "**/*.stories.*": "allow",
+      },
+      bash: "deny",
+      patch: "deny",
+      webfetch: "deny",
+      websearch: "deny",
+    };
+
+    // Disable dangerous tools entirely (can't even be invoked)
+    fileConfig.tools = {
+      bash: false,
+      webfetch: false,
+      websearch: false,
+      patch: false,
+    };
+
+    console.log("[loracle] Secure defaults applied — writes restricted to *.stories.* files");
+  } else {
+    console.log("[loracle] User permissions detected in .storybook/opencode.json — using user config");
   }
 
   return fileConfig;
