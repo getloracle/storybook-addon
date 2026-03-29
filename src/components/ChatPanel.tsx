@@ -50,6 +50,7 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
   const { storyId, storyTitle, storyFilePath } = useCurrentStory();
   const { messages, state, phase, streamingText, send, stop, isActive } = useChat(storyId, storyFilePath);
   const [showNewDraft, setShowNewDraft] = useState(false);
+  const [createDraftError, setCreateDraftError] = useState<string | undefined>(undefined);
   const [fileChanged, setFileChanged] = useState(false);
   const [providerReady, setProviderReady] = useState<boolean | null>(_providerDetected ? true : null);
   const pendingPromptRef = useRef<string | null>(null);
@@ -140,8 +141,12 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
 
   const handleCreateDraft = useCallback(
     async (componentName: string, description: string) => {
+      setCreateDraftError(undefined);
       const result = await loracleApi.createDraft(componentName);
-      if (!result.created) return;
+      if (!result.created) {
+        setCreateDraftError(result.error ?? "Failed to create draft. Please try again.");
+        return;
+      }
 
       setShowNewDraft(false);
 
@@ -182,7 +187,7 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
     <Container>
       <StatusBar
         storyTitle={storyTitle}
-        onNewDraft={() => setShowNewDraft(true)}
+        onNewDraft={() => { setShowNewDraft(true); setCreateDraftError(undefined); }}
       />
       {fileChanged && (
         <Banner>
@@ -209,7 +214,8 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
       {showNewDraft && (
         <NewDraftDialog
           onCreate={handleCreateDraft}
-          onCancel={() => setShowNewDraft(false)}
+          onCancel={() => { setShowNewDraft(false); setCreateDraftError(undefined); }}
+          serverError={createDraftError}
         />
       )}
     </Container>

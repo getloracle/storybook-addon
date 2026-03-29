@@ -5,6 +5,7 @@ import { styled } from "storybook/internal/theming";
 interface NewDraftDialogProps {
   onCreate: (componentName: string, description: string) => void;
   onCancel: () => void;
+  serverError?: string;
 }
 
 const Overlay = styled.div({
@@ -134,6 +135,7 @@ const PASCAL_CASE_RE = /^[A-Z][a-zA-Z0-9]*$/;
 export const NewDraftDialog: React.FC<NewDraftDialogProps> = ({
   onCreate,
   onCancel,
+  serverError,
 }) => {
   const [componentName, setComponentName] = useState("");
   const [description, setDescription] = useState("");
@@ -191,6 +193,7 @@ export const NewDraftDialog: React.FC<NewDraftDialogProps> = ({
           autoFocus
         />
         {error ? <ErrorText>{error}</ErrorText> : <Hint>PascalCase, letters and numbers only</Hint>}
+        {serverError && <ErrorText>{serverError}</ErrorText>}
 
         <Label>Initial Prompt</Label>
         <Textarea

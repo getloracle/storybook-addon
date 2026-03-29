@@ -1,0 +1,18 @@
+{
+  "storyId": "components-card--no-border",
+  "messages": [
+    {
+      "role": "user",
+      "content": "say hello in one word",
+      "timestamp": 1774820819090
+    },
+    {
+      "role": "assistant",
+      "content": "Hello",
+      "timestamp": 1774820820673
+    }
+  ],
+  "createdAt": 1774820819090,
+  "updatedAt": 1774820820674,
+  "cliSessionId": "ses_2c470a369ffePhJlpsNxFxjHHe"
+}
