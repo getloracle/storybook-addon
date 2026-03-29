@@ -1,0 +1,13 @@
+{
+  "provider": "google",
+  "model": "gemini-2.5-flash",
+  "mcp": {
+    "loracle": {
+      "type": "remote",
+      "url": "https://mcp.getloracle.com",
+      "headers": {
+        "Authorization": "Bearer sk_live_UzHEQ1ScBEdo9NoaZmak7s"
+      }
+    }
+  }
+}
