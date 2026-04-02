@@ -1,17 +1,30 @@
 # @loracle/storybook-addon
 
-AI-powered component development inside Storybook. Chat with AI to iterate on your components without leaving Storybook.
+Chat with AI to build and refine components — without leaving Storybook.
 
-## Installation
+![Loracle addon panel in Storybook](docs-screenshots/final/chat-panel-overview.png)
+
+Describe what you want. The AI edits the story file. Storybook hot-reloads with the result.
+
+## Why
+
+- **Uses your existing AI subscription** — works with Claude Code, Codex, Gemini, Bedrock, and more through [OpenCode](https://opencode.ai). No new account or API key required.
+- **Chat panel inside Storybook** — open the Loracle tab in the bottom panel and start prompting.
+- **Screenshot to story** — paste a screenshot or design mockup and the AI recreates it as a story using your design system components.
+- **Full undo/revert** — every message snapshots your code. Restore any previous state with one click.
+- **Safe by default** — the AI can only write to `*.stories.*` files. Bash, web fetch, and other destructive tools are disabled.
+
+
+## Quick start
 
 ```bash
-npx storybook@latest add @loracle/storybook-addon
+npx storybook@latest add @loracle-js/storybook-addon
 ```
 
 Or install manually:
 
 ```bash
-npm install @loracle/storybook-addon
+npm install @loracle-js/storybook-addon
 ```
 
 Then add it to your `.storybook/main.ts`:
@@ -19,7 +32,7 @@ Then add it to your `.storybook/main.ts`:
 ```ts
 const config: StorybookConfig = {
   addons: [
-    "@loracle/storybook-addon",
+    "@loracle-js/storybook-addon",
     // ... other addons
   ],
 };
@@ -27,9 +40,13 @@ const config: StorybookConfig = {
 export default config;
 ```
 
-## Provider Configuration
+Start Storybook and open the **Loracle** tab in the bottom panel.
 
-Create `.storybook/opencode.json` to configure your AI provider:
+## Connect your AI provider
+
+The addon runs on [OpenCode](https://opencode.ai) and connects to your existing AI provider subscription. If OpenCode already has a provider configured, the addon picks it up automatically — zero setup.
+
+To configure a specific provider, create `.storybook/opencode.json`:
 
 ```json
 {
@@ -40,20 +57,21 @@ Create `.storybook/opencode.json` to configure your AI provider:
 
 Supported providers: `anthropic`, `openai`, `google`, `amazon-bedrock`.
 
-If no config file is present, the addon auto-detects providers configured via [OpenCode](https://opencode.ai).
+See the [OpenCode provider guide](https://opencode.ai/docs/providers) for authentication setup for all supported providers.
 
 ## Requirements
 
 - Storybook 8.0+ or 9.0+
 - Node.js 18+
 
-## How It Works
+## Documentation
 
-The addon adds a panel to Storybook where you can chat with AI about the currently selected story. The AI can read and modify your component source code, with full undo/revert support.
+- [Full guide](https://docs.getloracle.com/storybook-addon)
+- [MCP server](https://docs.getloracle.com/mcp) — connect your coding agent to the published catalog
+- [Loracle CLI](https://docs.getloracle.com/cli) — publish your design system
 
 ## Links
 
-- [Documentation](https://docs.getloracle.com)
 - [Website](https://getloracle.com)
 - [Report Issues](https://github.com/getloracle/loracle/issues)
 

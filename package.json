@@ -56,7 +56,9 @@
     "access": "public"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["opencode-ai"]
+    "onlyBuiltDependencies": [
+      "opencode-ai"
+    ]
   },
   "scripts": {
     "build": "rm -rf dist && tsup",
@@ -73,20 +75,21 @@
     "storybook": "^8.0.0 || ^9.0.0"
   },
   "devDependencies": {
-    "react-dom": "^18.3.0",
+    "@storybook/addon-essentials": "^8.6.17",
     "@storybook/components": "^8.6.17",
     "@storybook/manager-api": "^8.6.17",
+    "@storybook/react": "^8.6.17",
+    "@storybook/react-vite": "^8.6.17",
     "@storybook/theming": "^8.6.17",
     "@storybook/types": "^8.6.17",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
+    "puppeteer": "^24.40.0",
     "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "storybook": "^8.6.17",
     "tsup": "^8.0.0",
     "typescript": "^5.8.2",
-    "@storybook/addon-essentials": "^8.6.17",
-    "@storybook/react": "^8.6.17",
-    "@storybook/react-vite": "^8.6.17",
-    "storybook": "^8.6.17",
     "vite": "^5.4.0"
   }
 }

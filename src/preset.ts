@@ -16,11 +16,12 @@ export async function viteFinal(config: any) {
   const { startOpenCode, stopOpenCode } = await import(
     "./server/opencode-lifecycle.js"
   );
+  const { isHmrSuppressed } = await import("./server/hmr-gate.js");
 
   const projectRoot = process.cwd();
 
   // Wire middleware
-  const { middleware: loracleMiddleware, setClient } =
+  const { middleware: loracleMiddleware, setClient, setViteServer } =
     createMiddleware(projectRoot);
 
   config.plugins = config.plugins || [];
@@ -28,6 +29,7 @@ export async function viteFinal(config: any) {
     name: "loracle-design-agent",
     configureServer(server: any) {
       server.middlewares.use(loracleMiddleware);
+      setViteServer(server);
 
       // Start OpenCode server in background
       startOpenCode({ projectRoot })
@@ -43,6 +45,21 @@ export async function viteFinal(config: any) {
       server.httpServer?.on("close", () => {
         stopOpenCode();
       });
+    },
+    handleHotUpdate({ file, modules, server, timestamp }: any) {
+      if (isHmrSuppressed(file)) {
+        // Invalidate module cache so the next load gets fresh content,
+        // but don't propagate HMR to the client
+        for (const mod of modules) {
+          server.moduleGraph.invalidateModule(
+            mod,
+            new Set(),
+            timestamp,
+            true
+          );
+        }
+        return []; // suppress HMR
+      }
     },
   });
 

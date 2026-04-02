@@ -6,8 +6,14 @@ import type { ModelConfig } from "./opencode-adapter.js";
 import { PromptBuilder } from "./prompt-builder.js";
 import { SessionStore } from "./session-store.js";
 import { FileManager } from "./file-manager.js";
+import { suppressHmr, releaseHmr } from "./hmr-gate.js";
 import type { StreamEvent, ChatMessage, ImageAttachment } from "../types.js";
 import type { OpencodeClient } from "@opencode-ai/sdk";
+
+interface ViteServer {
+  ws: { send: (payload: { type: string; path?: string }) => void };
+}
+
 
 interface Generation {
   id: string;
@@ -32,6 +38,7 @@ export class GenerationManager {
   private fileManager: FileManager;
   private generations: Map<string, Generation> = new Map();
   private activeGeneration: Generation | null = null;
+  private viteServer: ViteServer | null = null;
 
   constructor(projectRoot: string) {
     this.projectRoot = projectRoot;
@@ -42,6 +49,10 @@ export class GenerationManager {
 
   setClient(client: OpencodeClient): void {
     this.adapter = new OpenCodeAdapter(this.projectRoot, client);
+  }
+
+  setViteServer(server: ViteServer): void {
+    this.viteServer = server;
   }
 
   setModel(model: ModelConfig): void {
@@ -63,6 +74,12 @@ export class GenerationManager {
   }): string {
     if (!this.adapter) {
       throw new Error("OpenCode client not initialized");
+    }
+
+    // Normalize storyFilePath: strip leading "./" so the path matches
+    // OpenCode permission globs like "**/*.stories.*" (minimatch rejects "./" prefixes).
+    if (opts.storyFilePath) {
+      opts.storyFilePath = path.normalize(opts.storyFilePath);
     }
 
     // Kill any active generation
@@ -132,6 +149,11 @@ export class GenerationManager {
 
     this.generations.set(id, generation);
     this.activeGeneration = generation;
+
+    // Suppress HMR for this file during generation
+    if (liveAbsPath) {
+      suppressHmr(liveAbsPath);
+    }
 
     console.log("[loracle] Generation started:", {
       id,
@@ -214,6 +236,18 @@ export class GenerationManager {
         );
       }
 
+      // Release HMR suppression and trigger Storybook reload
+      if (generation.liveAbsPath) {
+        releaseHmr(generation.liveAbsPath);
+
+        // TODO: typecheck the file here before triggering reload
+        // If invalid, revert to snapshot before sending full-reload
+
+        if (this.viteServer) {
+          this.viteServer.ws.send({ type: "full-reload" });
+        }
+      }
+
       if (this.activeGeneration === generation) {
         this.activeGeneration = null;
       }
@@ -252,6 +286,14 @@ export class GenerationManager {
       this.adapter.kill(generation.abortStoryId);
     }
     generation.done = true;
+
+    // Release HMR suppression and trigger reload with whatever state exists
+    if (generation.liveAbsPath) {
+      releaseHmr(generation.liveAbsPath);
+      if (this.viteServer) {
+        this.viteServer.ws.send({ type: "full-reload" });
+      }
+    }
 
     const killEvent: StreamEvent = {
       type: "done",

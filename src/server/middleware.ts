@@ -376,5 +376,9 @@ export function createMiddleware(projectRoot: string) {
     });
   };
 
-  return { middleware, setClient };
+  function setViteServer(server: { ws: { send: (payload: { type: string }) => void } }) {
+    generationManager.setViteServer(server);
+  }
+
+  return { middleware, setClient, setViteServer };
 }
