@@ -333,9 +333,13 @@ export class OpenCodeAdapter {
         if (state?.status === "error") {
           const errorDetail = (state as Record<string, unknown>).error;
           console.error(`[loracle][trace] Tool error: ${part.tool}`, errorDetail ? JSON.stringify(errorDetail).slice(0, 300) : "");
+          // Treat tool errors as non-fatal: the LLM will continue and handle
+          // the error itself (retry, explain, etc.). Only session.error is truly
+          // fatal. Converting to tool_result keeps the SSE stream open so the
+          // LLM's follow-up response reaches the client.
           return {
-            type: "error",
-            content: `Tool error: ${part.tool}`,
+            type: "tool_result",
+            toolName: part.tool,
           };
         }
       }
