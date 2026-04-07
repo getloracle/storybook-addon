@@ -37,6 +37,7 @@ ALL changes MUST go into this single file. Do NOT create new files or new story 
 Do NOT add new named exports or new stories. Modify the EXISTING story exports in the file.
 If the file has a "Default" or other named story export, implement your changes by editing that existing export's render/args/template — do not create a separate story export with a different name.
 The user is viewing a specific story in Storybook right now. Your job is to update THAT story, not create a new one alongside it.
+CRITICAL: Do NOT change the "title" field in the meta/default export. The title controls the story's ID and URL in Storybook — changing it will break navigation and cause a "Couldn't find story" error. Keep the existing title exactly as-is.
 </scope_constraint>`
         );
       }
