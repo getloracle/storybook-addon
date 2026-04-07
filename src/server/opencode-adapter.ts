@@ -169,6 +169,7 @@ export class OpenCodeAdapter {
 
       // Track IDs to filter user messages, reasoning, and deduplicate
       let userMessageId: string | null = null;
+      let seenPromptActivity = false; // true once we see any event related to our prompt
       const reasoningPartIds = new Set<string>();
       const deltaPartIds = new Set<string>(); // parts that received deltas (skip their updated text)
 
@@ -199,6 +200,13 @@ export class OpenCodeAdapter {
             if (info?.role === "user" && info.id && !userMessageId) {
               userMessageId = info.id;
             }
+            // Any message.updated means the prompt is being processed
+            seenPromptActivity = true;
+          }
+
+          // Mark activity on any message-related event
+          if (parsed.type.startsWith("message.")) {
+            seenPromptActivity = true;
           }
 
           const eventMessageId = (props.messageID as string) || part?.messageID;
@@ -225,8 +233,14 @@ export class OpenCodeAdapter {
             if (deltaPartIds.has(part.id)) continue;
           }
 
-          // Handle session.idle: break the loop (done is emitted after).
+          // Handle session.idle: only break if we've seen prompt activity.
+          // A stale session.idle can arrive from the session's pre-prompt state
+          // because we subscribe to SSE before sending the prompt.
           if (parsed.type === "session.idle") {
+            if (!seenPromptActivity) {
+              console.log("[loracle][trace] Ignoring stale session.idle (no prompt activity yet)");
+              continue;
+            }
             console.log("[loracle][trace] Session idle — ending stream");
             break;
           }

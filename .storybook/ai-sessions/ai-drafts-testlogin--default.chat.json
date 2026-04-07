@@ -1,0 +1,97 @@
+{
+  "storyId": "ai-drafts-testlogin--default",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Build a simple login form with email and password fields and a submit button",
+      "timestamp": 1775561772770,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\n\nconst TestLogin = () => <div>TestLogin</div>;\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I have successfully built a simple login form with email and password fields and a submit button in `__ai_drafts__/TestLogin.stories.tsx`.",
+      "timestamp": 1775561793455
+    },
+    {
+      "role": "user",
+      "content": "Add a Remember me checkbox below the password field",
+      "timestamp": 1775561852090,
+      "codeSnapshot": "import \"@vibe/core/tokens\";\nimport type { Meta, StoryObj } from \"@storybook/react\";\nimport { useState } from \"react\";\nimport { TextField, Button } from \"@vibe/core\";\n\n\nconst TestLogin = () => {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n\n  const handleSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    console.log(\"Login submitted:\", { email, password });\n    // In a real application, you would handle authentication here\n    alert(`Logging in with: Email: ${email}, Password: ${password}`);\n  };\n\n  return (\n    <form onSubmit={handleSubmit} style={{ display: \"flex\", flexDirection: \"column\", gap: \"16px\", maxWidth: \"300px\", padding: \"20px\", border: \"1px solid #ccc\", borderRadius: \"8px\" }}>\n      <h2>Login</h2>\n      <TextField\n        id=\"email\"\n        title=\"Email\"\n        placeholder=\"Enter your email\"\n        type=\"email\"\n        value={email}\n        onChange={(value) => setEmail(value)}\n        required\n      />\n      <TextField\n        id=\"password\"\n        title=\"Password\"\n        placeholder=\"Enter your password\"\n        type=\"password\"\n        value={password}\n        onChange={(value) => setPassword(value)}\n        required\n      />\n      <Button type=\"submit\">Log In</Button>\n    </form>\n  );\n};\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I have added a \"Remember me\" checkbox below the password field in the login form.",
+      "timestamp": 1775561864664
+    },
+    {
+      "role": "user",
+      "content": "Build a simple login form with email and password fields and a submit button",
+      "timestamp": 1775563557781,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\n\nconst TestLogin = () => <div>TestLogin</div>;\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I've updated `__ai_drafts__/TestLogin.stories.tsx` to include a login form with email and password fields, and a submit button, using `@vibe/core` components.",
+      "timestamp": 1775563570458
+    },
+    {
+      "role": "user",
+      "content": "Add a Remember me checkbox below the password field",
+      "timestamp": 1775563597461,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\nimport \"@vibe/core/tokens\";\nimport { useState } from \"react\";\nimport { Button, TextField } from \"@vibe/core\";\n\nconst TestLogin = () => {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n\n  const handleSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    alert(`Email: ${email}, Password: ${password}`);\n    // In a real application, you would handle authentication here\n  };\n\n  return (\n    <form onSubmit={handleSubmit} style={{ display: \"flex\", flexDirection: \"column\", gap: \"10px\", maxWidth: \"300px\", padding: \"20px\", border: \"1px solid #ccc\", borderRadius: \"8px\" }}>\n      <TextField\n        placeholder=\"Email\"\n        value={email}\n        onChange={(value: string) => setEmail(value)}\n      />\n      <TextField\n        type=\"password\"\n        placeholder=\"Password\"\n        value={password}\n        onChange={(value: string) => setPassword(value)}\n      />\n      <Button type=\"submit\">Login</Button>\n    </form>\n  );\n};\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I've added a \"Remember me\" checkbox below the password field in `__ai_drafts__/TestLogin.stories.tsx`. I used a `label` prop for the text as the `Checkbox` component did not seem to accept children.",
+      "timestamp": 1775563609665
+    },
+    {
+      "role": "user",
+      "content": "Add a forgot password link below the login button",
+      "timestamp": 1775574270200,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\nimport \"@vibe/core/tokens\";\nimport { useState } from \"react\";\nimport { Button, Checkbox, TextField } from \"@vibe/core\";\n\nconst TestLogin = () => {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [rememberMe, setRememberMe] = useState(false);\n\n  const handleSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    alert(`Email: ${email}, Password: ${password}`);\n    // In a real application, you would handle authentication here\n  };\n\n  return (\n    <form onSubmit={handleSubmit} style={{ display: \"flex\", flexDirection: \"column\", gap: \"10px\", maxWidth: \"300px\", padding: \"20px\", border: \"1px solid #ccc\", borderRadius: \"8px\" }}>\n      <TextField\n        placeholder=\"Email\"\n        value={email}\n        onChange={(value: string) => setEmail(value)}\n      />\n      <TextField\n        type=\"password\"\n        placeholder=\"Password\"\n        value={password}\n        onChange={(value: string) => setPassword(value)}\n      />\n      <Checkbox\n        checked={rememberMe}\n        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRememberMe(e.target.checked)}\n        label=\"Remember me\"\n      />\n      <Button type=\"submit\">Login</Button>\n    </form>\n  );\n};\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "The \"Forgot password?\" link has been added below the login button in `__ai_drafts__/TestLogin.stories.tsx`.",
+      "timestamp": 1775574282825
+    },
+    {
+      "role": "user",
+      "content": "Hey how are you?",
+      "timestamp": 1775580915199,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\nimport \"@vibe/core/tokens\";\nimport { useState } from \"react\";\nimport { Button, Checkbox, TextField } from \"@vibe/core\";\n\nconst TestLogin = () => {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [rememberMe, setRememberMe] = useState(false);\n\n  const handleSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    alert(`Email: ${email}, Password: ${password}`);\n    // In a real application, you would handle authentication here\n  };\n\n  return (\n    <form onSubmit={handleSubmit} style={{ display: \"flex\", flexDirection: \"column\", gap: \"10px\", maxWidth: \"300px\", padding: \"20px\", border: \"1px solid #ccc\", borderRadius: \"8px\" }}>\n      <TextField\n        placeholder=\"Email\"\n        value={email}\n        onChange={(value: string) => setEmail(value)}\n      />\n      <TextField\n        type=\"password\"\n        placeholder=\"Password\"\n        value={password}\n        onChange={(value: string) => setPassword(value)}\n      />\n      <Checkbox\n        checked={rememberMe}\n        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRememberMe(e.target.checked)}\n        label=\"Remember me\"\n      />\n      <Button type=\"submit\">Login</Button>\n      <a href=\"#\" style={{ textAlign: \"center\", marginTop: \"10px\", fontSize: \"0.9em\", color: \"#0073e6\" }}>Forgot password?</a>\n    </form>\n  );\n};\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I am ready to assist you with your coding tasks. Please let me know what you need.",
+      "timestamp": 1775580918675
+    },
+    {
+      "role": "user",
+      "content": "Write 2 paragraphs of random text",
+      "timestamp": 1775580938575,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\nimport \"@vibe/core/tokens\";\nimport { useState } from \"react\";\nimport { Button, Checkbox, TextField } from \"@vibe/core\";\n\nconst TestLogin = () => {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [rememberMe, setRememberMe] = useState(false);\n\n  const handleSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    alert(`Email: ${email}, Password: ${password}`);\n    // In a real application, you would handle authentication here\n  };\n\n  return (\n    <form onSubmit={handleSubmit} style={{ display: \"flex\", flexDirection: \"column\", gap: \"10px\", maxWidth: \"300px\", padding: \"20px\", border: \"1px solid #ccc\", borderRadius: \"8px\" }}>\n      <TextField\n        placeholder=\"Email\"\n        value={email}\n        onChange={(value: string) => setEmail(value)}\n      />\n      <TextField\n        type=\"password\"\n        placeholder=\"Password\"\n        value={password}\n        onChange={(value: string) => setPassword(value)}\n      />\n      <Checkbox\n        checked={rememberMe}\n        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRememberMe(e.target.checked)}\n        label=\"Remember me\"\n      />\n      <Button type=\"submit\">Login</Button>\n      <a href=\"#\" style={{ textAlign: \"center\", marginTop: \"10px\", fontSize: \"0.9em\", color: \"#0073e6\" }}>Forgot password?</a>\n    </form>\n  );\n};\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I cannot fulfill this request as it is outside the scope of my capabilities as a code assistance tool. My purpose is to help with software engineering tasks, such as modifying code, fixing bugs, or writing tests. I am not designed to generate random text or engage in conversational chitchat.\n\nPlease let me know if you have any programming-related tasks I can assist you with!",
+      "timestamp": 1775580939764
+    },
+    {
+      "role": "user",
+      "content": "Write the code of the story here",
+      "timestamp": 1775580977175,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\nimport \"@vibe/core/tokens\";\nimport { useState } from \"react\";\nimport { Button, Checkbox, TextField } from \"@vibe/core\";\n\nconst TestLogin = () => {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [rememberMe, setRememberMe] = useState(false);\n\n  const handleSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    alert(`Email: ${email}, Password: ${password}`);\n    // In a real application, you would handle authentication here\n  };\n\n  return (\n    <form onSubmit={handleSubmit} style={{ display: \"flex\", flexDirection: \"column\", gap: \"10px\", maxWidth: \"300px\", padding: \"20px\", border: \"1px solid #ccc\", borderRadius: \"8px\" }}>\n      <TextField\n        placeholder=\"Email\"\n        value={email}\n        onChange={(value: string) => setEmail(value)}\n      />\n      <TextField\n        type=\"password\"\n        placeholder=\"Password\"\n        value={password}\n        onChange={(value: string) => setPassword(value)}\n      />\n      <Checkbox\n        checked={rememberMe}\n        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRememberMe(e.target.checked)}\n        label=\"Remember me\"\n      />\n      <Button type=\"submit\">Login</Button>\n      <a href=\"#\" style={{ textAlign: \"center\", marginTop: \"10px\", fontSize: \"0.9em\", color: \"#0073e6\" }}>Forgot password?</a>\n    </form>\n  );\n};\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "```tsx\nimport type { Meta, StoryObj } from \"@storybook/react\";\nimport \"@vibe/core/tokens\";\nimport { useState } from \"react\";\nimport { Button, Checkbox, TextField } from \"@vibe/core\";\n\nconst TestLogin = () => {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [rememberMe, setRememberMe] = useState(false);\n\n  const handleSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    alert(`Email: ${email}, Password: ${password}`);\n    // In a real application, you would handle authentication here\n  };\n\n  return (\n    <form onSubmit={handleSubmit} style={{ display: \"flex\", flexDirection: \"column\", gap: \"10px\", maxWidth: \"300px\", padding: \"20px\", border: \"1px solid #ccc\", borderRadius: \"8px\" }}>\n      <TextField\n        placeholder=\"Email\"\n        value={email}\n        onChange={(value: string) => setEmail(value)}\n      />\n      <TextField\n        type=\"password\"\n        placeholder=\"Password\"\n        value={password}\n        onChange={(value: string) => setPassword(value)}\n      />\n      <Checkbox\n        checked={rememberMe}\n        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRememberMe(e.target.checked)}\n        label=\"Remember me\"\n      />\n      <Button type=\"submit\">Login</Button>\n      <a href=\"#\" style={{ textAlign: \"center\", marginTop: \"10px\", fontSize: \"0.9em\", color: \"#0073e6\" }}>Forgot password?</a>\n    </form>\n  );\n};\n\nconst meta: Meta<typeof TestLogin> = {\n  title: \"AI Drafts/TestLogin\",\n  component: TestLogin,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestLogin>;\n\nexport const Default: Story = {};\n```",
+      "timestamp": 1775580981951
+    }
+  ],
+  "createdAt": 1775561772770,
+  "updatedAt": 1775580981951,
+  "filePath": "__ai_drafts__/TestLogin.stories.tsx",
+  "cliSessionId": "ses_297873617ffeUVMcE4d6ffobDL"
+}

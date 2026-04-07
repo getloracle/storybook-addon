@@ -19,37 +19,35 @@ export function useLoracleApi() {
     return data.session;
   }
 
-  async function sendPrompt(opts: {
-    prompt: string;
-    storyId: string;
-    storyFilePath?: string;
-    image?: ImageAttachment;
-  }): Promise<string> {
-    const res = await fetch(`${BASE}/prompt`, {
+  /**
+   * Send a prompt and stream the response in a single HTTP request.
+   * The server returns an SSE stream: first event is { type: "started", generationId }
+   * followed by the usual StreamEvent flow.
+   */
+  function promptAndStream(
+    opts: {
+      prompt: string;
+      storyId: string;
+      storyFilePath?: string;
+      image?: ImageAttachment;
+    },
+    onEvent: (event: StreamEvent) => void,
+    onDone: (generationId: string | null) => void
+  ): () => void {
+    const controller = new AbortController();
+    let generationId: string | null = null;
+
+    fetch(`${BASE}/prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(opts),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(data.error || `Prompt failed (${res.status})`);
-    }
-    const data = await res.json();
-    if (!data.generationId) {
-      throw new Error("Server returned no generationId");
-    }
-    return data.generationId;
-  }
-
-  function streamGeneration(
-    generationId: string,
-    onEvent: (event: StreamEvent) => void,
-    onDone: () => void
-  ): () => void {
-    const controller = new AbortController();
-
-    fetch(`${BASE}/stream/${generationId}`, { signal: controller.signal })
+      signal: controller.signal,
+    })
       .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: res.statusText }));
+          throw new Error(data.error || `Prompt failed (${res.status})`);
+        }
         if (!res.body) return;
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -66,10 +64,16 @@ export function useLoracleApi() {
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
-                const event = JSON.parse(line.slice(6)) as StreamEvent;
+                const parsed = JSON.parse(line.slice(6));
+                // First event carries the generationId
+                if (parsed.type === "started" && parsed.generationId) {
+                  generationId = parsed.generationId;
+                  continue;
+                }
+                const event = parsed as StreamEvent;
                 onEvent(event);
                 if (event.type === "done" || event.type === "error") {
-                  onDone();
+                  onDone(generationId);
                   return;
                 }
               } catch {
@@ -78,10 +82,10 @@ export function useLoracleApi() {
             }
           }
         }
-        onDone();
+        onDone(generationId);
       })
       .catch(() => {
-        onDone();
+        onDone(generationId);
       });
 
     return () => {
@@ -124,5 +128,5 @@ export function useLoracleApi() {
     });
   }
 
-  return { health, getSession, sendPrompt, streamGeneration, kill, createDraft, warmSession };
+  return { health, getSession, promptAndStream, kill, createDraft, warmSession };
 }

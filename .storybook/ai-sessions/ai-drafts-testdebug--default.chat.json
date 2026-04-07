@@ -1,0 +1,42 @@
+{
+  "storyId": "ai-drafts-testdebug--default",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Generate a login page. Use loracle mcp",
+      "timestamp": 1775572047059,
+      "codeSnapshot": "import type { Meta, StoryObj } from \"@storybook/react\";\n\nconst TestDebug = () => <div>TestDebug</div>;\n\nconst meta: Meta<typeof TestDebug> = {\n  title: \"AI Drafts/TestDebug\",\n  component: TestDebug,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof TestDebug>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I've generated the login page in `__ai_drafts__/TestDebug.stories.tsx`.",
+      "timestamp": 1775572073667
+    },
+    {
+      "role": "user",
+      "content": "Add \"Forgot Password\" link",
+      "timestamp": 1775572150227,
+      "codeSnapshot": "import \"@vibe/core/tokens\";\nimport type { Meta, StoryObj } from \"@storybook/react\";\nimport { useState } from \"react\";\nimport { Flex, Heading, TextField, Button } from \"@vibe/core\";\n\nconst LoginForm = () => {\n  const [username, setUsername] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n\n  const handleSubmit = () => {\n    alert(`Logging in with: Username - ${username}, Password - ${password}`);\n  };\n\n  return (\n    <Flex direction=\"column\" gap=\"large\" style={{ width: 300, padding: 20, border: \"1px solid #ccc\", borderRadius: 8 }}>\n      <Heading type=\"h1\" weight=\"bold\">\n        Login\n      </Heading>\n      <TextField\n        title=\"Username\"\n        placeholder=\"Enter your username\"\n        value={username}\n        onChange={setUsername}\n      />\n      <TextField\n        title=\"Password\"\n        placeholder=\"Enter your password\"\n        type=\"password\"\n        value={password}\n        onChange={setPassword}\n      />\n      <Button onClick={handleSubmit}>\n        Login\n      </Button>\n    </Flex>\n  );\n};\n\nconst meta: Meta<typeof LoginForm> = {\n  title: \"AI Drafts/TestDebug\",\n  component: LoginForm,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof LoginForm>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I've added the \"Forgot Password\" link to the login page and imported the `Link` component.",
+      "timestamp": 1775572165292
+    },
+    {
+      "role": "user",
+      "content": "Add a Remember me option",
+      "timestamp": 1775572178461,
+      "codeSnapshot": "import \"@vibe/core/tokens\";\nimport type { Meta, StoryObj } from \"@storybook/react\";\nimport { useState } from \"react\";\nimport { Flex, Heading, TextField, Button, Link } from \"@vibe/core\";\n\nconst LoginForm = () => {\n  const [username, setUsername] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n\n  const handleSubmit = () => {\n    alert(`Logging in with: Username - ${username}, Password - ${password}`);\n  };\n\n  return (\n    <Flex direction=\"column\" gap=\"large\" style={{ width: 300, padding: 20, border: \"1px solid #ccc\", borderRadius: 8 }}>\n      <Heading type=\"h1\" weight=\"bold\">\n        Login\n      </Heading>\n      <TextField\n        title=\"Username\"\n        placeholder=\"Enter your username\"\n        value={username}\n        onChange={setUsername}\n      />\n      <TextField\n        title=\"Password\"\n        placeholder=\"Enter your password\"\n        type=\"password\"\n        value={password}\n        onChange={setPassword}\n      />\n      <Flex justify=\"end\" style={{ width: \"100%\" }}>\n        <Link text=\"Forgot Password?\" href=\"#\" onClick={() => alert(\"Forgot Password clicked!\")} />\n      </Flex>\n      <Button onClick={handleSubmit}>\n        Login\n      </Button>\n    </Flex>\n  );\n};\n\nconst meta: Meta<typeof LoginForm> = {\n  title: \"AI Drafts/TestDebug\",\n  component: LoginForm,\n};\n\nexport default meta;\ntype Story = StoryObj<typeof LoginForm>;\n\nexport const Default: Story = {};\n"
+    },
+    {
+      "role": "assistant",
+      "content": "I've added the \"Remember me\" checkbox to the login form and fixed the `Flex` justify property and state management for the checkbox.",
+      "timestamp": 1775572200229
+    }
+  ],
+  "createdAt": 1775572047059,
+  "updatedAt": 1775572200229,
+  "filePath": "__ai_drafts__/TestDebug.stories.tsx",
+  "cliSessionId": "ses_297a8c8f8ffeQQM6BW9Zar36Hh"
+}

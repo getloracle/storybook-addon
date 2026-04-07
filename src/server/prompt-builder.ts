@@ -24,17 +24,15 @@ export class PromptBuilder {
       parts.push(`<system_instructions>\n${agentsContent}\n</system_instructions>`);
     }
 
-    // Current story file content + scope constraint
+    // Scope constraint — tells the agent which file to modify.
+    // We do NOT inline file content: OpenCode's edit tool requires a read
+    // call first, and providing content inline causes agents to skip read.
     if (opts.storyFilePath) {
       const fullPath = path.resolve(this.projectRoot, opts.storyFilePath);
       if (fs.existsSync(fullPath)) {
-        const content = fs.readFileSync(fullPath, "utf-8");
-        parts.push(
-          `<current_story_file path="${opts.storyFilePath}">\n${content}\n</current_story_file>`
-        );
         parts.push(
           `<scope_constraint>
-IMPORTANT: You are editing the story file above ("${opts.storyFilePath}").
+IMPORTANT: You must modify the story file at "${opts.storyFilePath}".
 ALL changes MUST go into this single file. Do NOT create new files or new story files.
 Do NOT add new named exports or new stories. Modify the EXISTING story exports in the file.
 If the file has a "Default" or other named story export, implement your changes by editing that existing export's render/args/template — do not create a separate story export with a different name.

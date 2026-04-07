@@ -101,18 +101,16 @@ export function useChat(storyId: string | null, storyFilePath?: string | null) {
       }
 
       try {
-        const generationId = await api.sendPrompt({
-          prompt,
-          storyId,
-          storyFilePath: storyFilePath || undefined,
-          image,
-        });
-
         let fullText = "";
         let receivedFirstEvent = false;
 
-        const cancel = api.streamGeneration(
-          generationId,
+        const cancel = api.promptAndStream(
+          {
+            prompt,
+            storyId,
+            storyFilePath: storyFilePath || undefined,
+            image,
+          },
           (event: StreamEvent) => {
             // Transition from submitted → thinking on first event
             if (!receivedFirstEvent) {

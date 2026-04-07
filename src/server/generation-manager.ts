@@ -161,7 +161,7 @@ export class GenerationManager {
       promptLength: fullPrompt.length,
     });
 
-    // Start streaming in background (permission restriction is applied inside)
+    // Start streaming in background
     this.consumeStream(generation, fullPrompt, opts.image);
 
     return id;
@@ -190,6 +190,14 @@ export class GenerationManager {
           event.type,
           event.content?.slice(0, 80)
         );
+
+        // Hold back the "done" event — we emit it in the finally block
+        // after the Vite reload so the loader stays visible until the
+        // new story is rendered.
+        if (event.type === "done") {
+          continue;
+        }
+
         generation.events.push(event);
 
         if (event.type === "text" && event.content) {
@@ -216,8 +224,6 @@ export class GenerationManager {
         listener(errorEvent);
       }
     } finally {
-      generation.done = true;
-
       // Save assistant response to session
       if (generation.fullText) {
         const assistantMessage: ChatMessage = {
@@ -251,6 +257,18 @@ export class GenerationManager {
       if (this.activeGeneration === generation) {
         this.activeGeneration = null;
       }
+
+      // Emit "done" after HMR release + Vite reload so the loader stays
+      // visible until the new story is ready to render.
+      if (!streamError) {
+        const doneEvent: StreamEvent = { type: "done", content: "completed" };
+        generation.events.push(doneEvent);
+        for (const listener of generation.listeners) {
+          listener(doneEvent);
+        }
+      }
+
+      generation.done = true;
     }
   }
 

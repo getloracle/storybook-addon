@@ -131,6 +131,9 @@ export function createMiddleware(projectRoot: string) {
         json(res, { session });
       },
     },
+    // Unified prompt+stream: starts the generation and returns an SSE stream
+    // in one request, eliminating the race between POST and GET that caused
+    // events to buffer before the client connected.
     {
       method: "POST",
       pattern: /^\/loracle-api\/prompt$/,
@@ -151,35 +154,33 @@ export function createMiddleware(projectRoot: string) {
           json(res, { error: "prompt and storyId required" }, 400);
           return;
         }
-        const generationId = generationManager.startGeneration({
-          prompt,
-          storyId,
-          storyFilePath,
-          image,
-        });
-        json(res, { generationId });
-      },
-    },
-    {
-      method: "GET",
-      pattern: /^\/loracle-api\/stream\/(?<id>[^/]+)$/,
-      handler: (_req, res, params) => {
-        const { id } = params;
 
+        // Open SSE stream BEFORE starting the generation so the listener
+        // is registered before any events can fire.
         res.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
         });
 
-        const unsubscribe = generationManager.subscribe(id, (event) => {
+        const generationId = generationManager.startGeneration({
+          prompt,
+          storyId,
+          storyFilePath,
+          image,
+        });
+
+        // First event: tell the client its generationId (for kill requests)
+        res.write(`data: ${JSON.stringify({ type: "started", generationId })}\n\n`);
+
+        const unsubscribe = generationManager.subscribe(generationId, (event) => {
           res.write(`data: ${JSON.stringify(event)}\n\n`);
           if (event.type === "done" || event.type === "error") {
             res.end();
           }
         });
 
-        _req.on("close", () => {
+        req.on("close", () => {
           unsubscribe();
         });
       },

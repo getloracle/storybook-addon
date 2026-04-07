@@ -201,7 +201,7 @@ export const ChatPanel: React.FC<{ active?: boolean }> = ({ active = false }) =>
         messages={messages}
         streamingText={streamingText}
         isStreaming={isActive}
-        hideStreamingBubble={isActive}
+        hideStreamingBubble={false}
         onRestore={handleRestore}
       />
       <ActivityStatus phase={phase} />
